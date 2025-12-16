@@ -138,6 +138,16 @@ CREATE TABLE payments (
                           created_at TIMESTAMP DEFAULT now()
 );
 
+ALTER TABLE payments
+    ADD COLUMN provider VARCHAR(50), -- 'card', 'wave', 'orange_money', 'yas', 'kpay'
+    ADD COLUMN card_holder_name VARCHAR(150), -- Nom sur la carte
+    ADD COLUMN card_last4 VARCHAR(4),          -- 4 derniers chiffres
+    ADD COLUMN card_exp_month INTEGER,         -- Mois d'expiration
+    ADD COLUMN card_exp_year INTEGER,          -- Année d'expiration
+    ADD COLUMN mobile_number VARCHAR(30),      -- Pour Mobile Money
+    ADD COLUMN payment_token VARCHAR(255);     -- Token généré par le prestataire
+
+
 CREATE TABLE evaluations (
                              id SERIAL PRIMARY KEY,
                              trip_id INTEGER REFERENCES trips(id),
@@ -166,6 +176,11 @@ CREATE TABLE subscriptions (
                                created_at TIMESTAMP DEFAULT now(),
                                updated_at TIMESTAMP DEFAULT now()
 );
+
+ALTER TABLE subscriptions
+    ADD COLUMN start_date DATE DEFAULT CURRENT_DATE,
+    ADD COLUMN end_date DATE,
+    ADD CONSTRAINT unique_user_subscription UNIQUE (user_id, type, start_date);
 
 CREATE TABLE support_tickets (
                                  id SERIAL PRIMARY KEY,
