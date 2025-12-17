@@ -190,7 +190,6 @@ export async function PATCH(
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        // ✅ OBLIGATOIRE AVEC APP ROUTER
         const { id } = await context.params;
         const tripId = Number(id);
 
@@ -204,33 +203,56 @@ export async function PATCH(
             );
         }
 
-        const result = await query(
-            `
-                UPDATE trips
-                SET driver_id = $1
-                WHERE id = $2 AND driver_id IS NULL
-                    RETURNING *
-            `,
-            [driver_id, tripId]
+        // Récupération du trajet
+        const trip = await query(
+            `SELECT start_point, end_point, departure_time FROM trips WHERE id = $1`,
+            [tripId]
         );
 
-        if (result.rowCount === 0) {
+        if (!trip.rows[0]) {
             return NextResponse.json(
-                { message: "Trajet introuvable ou déjà affecté" },
+                { message: "Trajet introuvable" },
+                { status: 404 }
+            );
+        }
+
+        const { start_point, end_point, departure_time } = trip.rows[0];
+
+        // Vérification qu'un autre trajet du même chauffeur au même horaire n'existe pas
+        const conflict = await query(
+            `SELECT * FROM trips
+             WHERE driver_id = $1
+               AND start_point = $2
+               AND end_point = $3
+               AND departure_time = $4`,
+            [driver_id, start_point, end_point, departure_time]
+        );
+
+        if (conflict.rows.length > 0) {
+            return NextResponse.json(
+                { message: "Ce chauffeur a déjà un trajet à cette date et heure" },
                 { status: 409 }
             );
         }
 
+        // Affectation du chauffeur (plus besoin de driver_id IS NULL)
+        const result = await query(
+            `UPDATE trips
+             SET driver_id = $1
+             WHERE id = $2
+                 RETURNING *`,
+            [driver_id, tripId]
+        );
+
         return NextResponse.json(result.rows[0]);
-    } catch (error) {
-        console.error("❌ Erreur affectation chauffeur :", error);
+    } catch (error: any) {
+        console.error("Erreur affectation chauffeur :", error);
         return NextResponse.json(
             { message: "Erreur serveur" },
             { status: 500 }
         );
     }
 }
-
 
 export async function DELETE(req: Request, params: { id: string }) {
     const id = Number(params.id);

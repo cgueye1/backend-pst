@@ -120,6 +120,9 @@ ADD COLUMN  start_point VARCHAR(255) NOT NULL,
   ADD COLUMN    departure_time TIMESTAMP NOT NULL,
 
   ADD COLUMN   capacity_max INTEGER NOT NULL CHECK (capacity_max > 0);
+ALTER TABLE trips
+    ADD CONSTRAINT unique_trip_driver_time
+        UNIQUE (start_point, end_point, departure_time, driver_id);
 
 
 CREATE TABLE trip_children (
@@ -139,8 +142,7 @@ CREATE TABLE payments (
 );
 
 ALTER TABLE payments
-    ADD COLUMN provider VARCHAR(50), -- 'card', 'wave', 'orange_money', 'yas', 'kpay'
-    ADD COLUMN card_holder_name VARCHAR(150), -- Nom sur la carte
+      ADD COLUMN card_holder_name VARCHAR(150), -- Nom sur la carte
     ADD COLUMN card_last4 VARCHAR(4),          -- 4 derniers chiffres
     ADD COLUMN card_exp_month INTEGER,         -- Mois d'expiration
     ADD COLUMN card_exp_year INTEGER,          -- Année d'expiration

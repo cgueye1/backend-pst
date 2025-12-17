@@ -131,17 +131,41 @@ export async function GET() {
         const tripStats = await query(
             `SELECT status, COUNT(*) AS total FROM trips GROUP BY status`);
 
-        // Revenus mensuels
+        // Revenus mensuels  somme des paiements PAYÉS par mois
         const revenueMonthly = await query(`
             SELECT
-                date_trunc('month', created_at) AS month,
-  SUM(amount)::numeric(10,2) AS total
+                to_char(date_trunc('month', created_at), 'Mon YYYY') AS month,
+             COALESCE(SUM(amount), 0) AS total
             FROM payments
             WHERE status = 'paid'
-            GROUP BY 1
-            ORDER BY 1 ASC;
+            GROUP BY date_trunc('month', created_at)
+            ORDER BY date_trunc('month', created_at); 
+        `);  // Revenus mensuels  somme des paiements PAYÉS par mois
 
-
+        const repartitionPayment = await query(`  
+         SELECT
+        CASE
+        WHEN method = 'Carte Bancaire' THEN 'Carte Bancaire'
+        WHEN method IN ('Wave', 'Orange Money', 'Yas Money', 'Kay Pay') THEN 'Mobile Money'
+        WHEN method = 'cash' THEN 'Espèces'
+        ELSE 'Autre'
+        END AS payment_type,
+        COUNT(*) AS total_transactions,
+            COALESCE(SUM(amount), 0) AS total_amount
+        FROM payments
+        WHERE status = 'paid'
+        AND date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)
+        GROUP BY payment_type
+        ORDER BY total_amount DESC `
+    );
+        const revenueMonthlyEnCours = await query(`
+            SELECT
+                to_char(date_trunc('month', created_at), 'Mon YYYY') AS month,
+            COALESCE(SUM(amount), 0) AS total
+            FROM payments
+            WHERE status = 'paid'
+              AND date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)
+            GROUP BY date_trunc('month', created_at)
         `);
 
         // Trajets du jour (total)
@@ -178,7 +202,13 @@ export async function GET() {
 
         // Montant moyen par abonnement
         const avgSubscription = await query(
-            `SELECT AVG(amount) AS avg_amount FROM payments WHERE status='paid'`);
+            `SELECT
+                 ROUND(AVG(price), 2) AS montant_moyen_abonnement
+             FROM subscriptions
+             WHERE active = true
+               AND start_date <= CURRENT_DATE
+               AND (end_date IS NULL OR end_date >= CURRENT_DATE);
+            `);
        // Nombre d'écoles partenaires
         const schoolsCount = await query(
             `SELECT COUNT(*) AS total FROM schools WHERE status = 'Actif'`
@@ -201,29 +231,55 @@ export async function GET() {
             WITH this_month AS (
                 SELECT COALESCE(SUM(amount), 0) AS total
                 FROM payments
-                WHERE status='paid'
-                  AND date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)
-            ),
-                 last_month AS (
-                     SELECT COALESCE(SUM(amount), 0) AS total
-                     FROM payments
-                     WHERE status='paid'
-                       AND date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE - INTERVAL '1 month')
-                 )
+                WHERE status = 'paid'
+                  AND created_at >= date_trunc('month', CURRENT_DATE)
+                  AND created_at < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+                ),
+                last_month AS (
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM payments
+            WHERE status = 'paid'
+              AND created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')
+              AND created_at < date_trunc('month', CURRENT_DATE)
+                )
             SELECT
                 this_month.total AS this_month,
                 last_month.total AS last_month,
                 CASE
                     WHEN last_month.total = 0 THEN 0
-                    ELSE ((this_month.total - last_month.total) / last_month.total) * 100
+                    ELSE ROUND(
+                            ((this_month.total - last_month.total) / last_month.total) * 100,
+                            2
+                         )
                     END AS growth_rate
-            FROM this_month, last_month
+            FROM this_month, last_month;
+
+
         `);
 
-
+          // Paiements en attente
+        const pendingPayments = await query(`
+            SELECT
+                COUNT(*) AS total_pending,
+                COALESCE(SUM(amount), 0) AS total_amount
+            FROM payments
+            WHERE status = 'pending';
+        `);
         //   Alertes incidents
         const incidentAlerts = await query(`SELECT * FROM notifications WHERE type='incident' ORDER BY created_at DESC LIMIT 10`);
 
+        //liste des paiements
+        const result = await query(`
+            SELECT 
+                p.id,
+                u.name AS user_name,
+                p.method,
+                p.amount,
+                p.created_at
+            FROM payments p
+            LEFT JOIN users u ON u.id = p.user_id
+            ORDER BY p.created_at DESC
+        `);
         return NextResponse.json({
             success: true,
             users: {
@@ -242,9 +298,13 @@ export async function GET() {
             revenue_monthly: revenueMonthly.rows,
             subscriptions_active: activeSubscriptions.rows[0].total,
             subscriptions_growth: subscriptionsGrowth.rows,
-            avg_subscription: avgSubscription.rows[0].avg_amount,
-            growth: growthRate.rows[0],
-            incidents: incidentAlerts.rows
+             avg_subscription: Number(avgSubscription.rows[0].montant_moyen_abonnement),
+             revenueMonthlyEnCours : parseInt(revenueMonthlyEnCours.rows[0].total),
+             growth: Number(growthRate.rows[0].growth_rate),
+            pending_payments: pendingPayments.rows[0].total_amount,
+            paymentMethods: repartitionPayment.rows,
+            incidents: incidentAlerts.rows,
+            result: result.rows
         });
 
     } catch (error: unknown) {
