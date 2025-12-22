@@ -1,3 +1,70 @@
+/**
+ * @swagger
+ * /api/auth :
+ *   get:
+ *     summary: Récupérer le profil de l'utilisateur connecté
+ *     description: |
+ *       Cette route permet de récupérer les informations du profil de
+ *       l'utilisateur actuellement authentifié à partir d'un token JWT.
+ *       Le token doit être fourni dans le header Authorization sous la forme :
+ *       **Bearer {token}**
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profil utilisateur récupéré avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   example: 7
+ *                 firstName:
+ *                   type: string
+ *                   example: "Mame"
+ *                 lastName:
+ *                   type: string
+ *                   example: "Dramé"
+ *                 role:
+ *                   type: string
+ *                   example: "admin"
+ *                 status:
+ *                   type: string
+ *                   example: "active"
+ *                 phone:
+ *                   type: string
+ *                   example: "+221770000000"
+ *                 email:
+ *                   type: string
+ *                   example: "user@email.com"
+ *       401:
+ *         description: Non autorisé ou token invalide
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Non autorisé"
+ *       404:
+ *         description: Utilisateur introuvable
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Utilisateur introuvable"
+ */
+
+
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import {getUserById, updateUser} from "@/services/userServices";
