@@ -1,6 +1,6 @@
 /**
  * @swagger
- * /api/trips/unassigned:
+ * /api/trips/with-driver:
  *   get:
  *     summary: Récupérer tous les trajets   affectés a un chauffeur
  *     tags: [Trips]

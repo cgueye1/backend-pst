@@ -142,7 +142,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Dossier pour les uploads de logos d'écoles
-const uploadDir = path.join(process.cwd(), 'public/uploads/schools');
+const uploadDir = path.join(process.cwd(), '/uploads/schools');
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });

@@ -24,6 +24,8 @@ CREATE TABLE schools (
 );
 
 ALTER TABLE schools
+    ADD COLUMN  created_at TIMESTAMP DEFAULT now();
+ALTER TABLE schools
     ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE schools
     ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Actif'
@@ -160,14 +162,7 @@ CREATE TABLE evaluations (
                              created_at TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE notifications (
-                               id SERIAL PRIMARY KEY,
-                               user_id INTEGER REFERENCES users(id),
-                               type VARCHAR(50),
-                               message TEXT,
-                               read BOOLEAN DEFAULT FALSE,
-                               created_at TIMESTAMP DEFAULT now()
-);
+
 
 CREATE TABLE subscriptions (
                                id SERIAL PRIMARY KEY,
@@ -218,4 +213,66 @@ CREATE VIEW v_trips_stats AS
 SELECT status, count(*) AS total FROM trips GROUP BY status;
 
 
+
+CREATE TABLE public_holidays (
+                                 id SERIAL PRIMARY KEY,
+                                 date DATE NOT NULL UNIQUE,
+                                 label VARCHAR(150) NOT NULL
+);
+
+CREATE TABLE school_vacations (
+                                  id SERIAL PRIMARY KEY,
+                                  school_id INTEGER REFERENCES schools(id) ON DELETE CASCADE,
+                                  name VARCHAR(150) NOT NULL,
+                                  start_date DATE NOT NULL,
+                                  end_date DATE NOT NULL,
+                                  created_at TIMESTAMP DEFAULT now(),
+
+                                  CHECK (end_date >= start_date)
+);
+
+
+
+
+-- 2. Table des Incidents (Gestion des signalements)
+CREATE TABLE incidents (
+                           id SERIAL PRIMARY KEY,
+                           type_de_problem VARCHAR(100) NOT NULL,
+                           description TEXT NOT NULL,
+                           status VARCHAR(20) DEFAULT 'En cours'
+                               CHECK (status IN ('En cours', 'Resolu')),
+    -- JSONB est excellent pour stocker les métadonnées des fichiers (nom, taille, url)
+                           documents JSONB DEFAULT '[]'::jsonb,
+                           user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Table des Notifications (Alertes système)
+CREATE TABLE notifications (
+                               id SERIAL PRIMARY KEY,
+                               libelle VARCHAR(150) NOT NULL,
+                               type VARCHAR(50) NOT NULL
+                                   CHECK (type IN ('BLOCAGE', 'ABSENCE', 'LITIGE', 'ANOMALIE', 'SYSTEME')),
+                               description TEXT NOT NULL,
+                               emeteur_id INTEGER REFERENCES users(id), -- Lié à la table users
+                               date_evenement DATE NOT NULL DEFAULT CURRENT_DATE,
+                               image_url VARCHAR(255) NULL,
+                               is_read BOOLEAN DEFAULT FALSE,
+                               created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                               updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Fonction pour mettre à jour automatiquement le champ updated_at
+CREATE OR REPLACE FUNCTION update_modified_column()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 5. Triggers pour l'automatisation
+CREATE TRIGGER update_incident_modtime BEFORE UPDATE ON incidents FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_notification_modtime BEFORE UPDATE ON notifications FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 COMMIT;
