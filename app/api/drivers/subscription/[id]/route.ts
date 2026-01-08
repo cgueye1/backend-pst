@@ -5,7 +5,7 @@ import {query} from "@/lib/db";
 /**
  * @swagger
  * /api/drivers/subscription/{id}:
- *   post:
+ *   delete:
  *     summary: Résilier l'abonnement
  *     tags: [CHAUFFEUR]
  */
