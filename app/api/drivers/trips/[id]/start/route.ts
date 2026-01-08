@@ -4,7 +4,7 @@
  * @swagger
  * /api/drivers/trips/{id}/start:
  *   put:
- *     summary: Démarrer un trajet
+ *     summary: Démarrer un trajet suivi d'alerte debut trajet
  *     tags: [CHAUFFEUR]
  */
 

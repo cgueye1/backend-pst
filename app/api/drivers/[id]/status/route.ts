@@ -20,7 +20,7 @@ export async function PATCH(
         ? await context.params
         : context.params;
     try {
-        console.log('PATCH /api/drivers/[id]]/status - Début');
+        console.log('PATCH /api/drivers/[messageId]]/status - Début');
         console.log('Params:', params);
 
         // Vérifier l'authentification

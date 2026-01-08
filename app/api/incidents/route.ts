@@ -14,15 +14,18 @@
  *   post:
  *     summary: Créer un nouvel incident
  *     description: >
- *       Permet de créer un incident avec 1 à 3 documents obligatoires.
+ *       Permet de créer un incident avec 1 à 3 documents obligatoires. pour tous les utilisateurs
  *     tags:
- *       - ADMIN
+ *       - SIGNALER UN PROBLEME
 
  */
 
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import {NextRequest, NextResponse} from 'next/server';
+import {getUserFromRequest} from "@/lib/auth";
 
+import fs from 'fs';
+import path from 'path';
 interface Incident {
     id: number;
     type_de_problem: string;
@@ -75,16 +78,30 @@ export async function GET(req: Request) {
 }
 
 
-// POST: Create an incident with up to 3 documents
-export async function POST(req: Request) {
-    try {
-        const formData = await req.formData();
 
+
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+// Dossier pour les uploads d'incidents
+const uploadDir = path.join(process.cwd(), '/uploads/incidents');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+export async function POST(req: NextRequest) {
+    try {
+        const user = await getUserFromRequest(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+        }
+
+        const formData = await req.formData();
         const type_de_problem = formData.get('type_de_problem') as string;
         const description = formData.get('description') as string;
-        const user_id = Number(formData.get('user_id'));
 
-        if (!type_de_problem || !description || !user_id) {
+        if (!type_de_problem || !description) {
             return NextResponse.json(
                 { error: 'Champs obligatoires manquants' },
                 { status: 400 }
@@ -93,21 +110,26 @@ export async function POST(req: Request) {
 
         // 📁 Gestion des documents (1 à 3 max)
         const documents: any[] = [];
-
         for (let i = 0; i < 3; i++) {
             const file = formData.get(`documents[${i}]`);
-
             if (file && file instanceof File) {
+                const ext = path.extname(file.name);
+                const filename = `incident_${Date.now()}_${i}${ext}`;
+                const filePath = path.join(uploadDir, filename);
+
+                // Convertir File en Buffer et sauvegarder
+                const bytes = await file.arrayBuffer();
+                fs.writeFileSync(filePath, Buffer.from(bytes));
+
                 documents.push({
                     name: file.name,
                     size: file.size,
                     type: file.type,
-                    // url: à remplir plus tard (S3, Cloudinary, etc.)
+                    url: `/uploads/incidents/${filename}`, // chemin accessible via API
                 });
             }
         }
 
-        // ❌ Aucun document
         if (documents.length === 0) {
             return NextResponse.json(
                 { error: 'Au moins un document est requis' },
@@ -115,41 +137,27 @@ export async function POST(req: Request) {
             );
         }
 
-        // ❌ Trop de documents
-        if (documents.length > 3) {
-            return NextResponse.json(
-                { error: 'Maximum 3 documents autorisés' },
-                { status: 400 }
-            );
-        }
-
-        const sql = `
-            INSERT INTO incidents (
+        const res = await query(
+            `INSERT INTO incidents (
                 type_de_problem,
                 description,
                 documents,
                 user_id,
                 status
-            )
-            VALUES ($1, $2, $3, $4, $5)
-                RETURNING *
-        `;
+            ) VALUES ($1, $2, $3, $4, 'En cours') RETURNING *`,
+            [type_de_problem, description, JSON.stringify(documents), user.id]
+        );
 
-        const result = await query(sql, [
-            type_de_problem,
-            description,
-            JSON.stringify(documents),
-            user_id,
-            'En cours'
-        ]);
+        return NextResponse.json(res.rows[0], { status: 201 });
 
-        return NextResponse.json(result.rows[0], { status: 201 });
-
-    } catch (error) {
+    } catch (error: any) {
         console.error('POST incident error:', error);
         return NextResponse.json(
-            { error: 'Erreur lors de la création de l’incident' },
+            { error: error.message || 'Erreur lors de la création de l’incident' },
             { status: 500 }
         );
     }
 }
+
+
+

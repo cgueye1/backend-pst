@@ -2,7 +2,7 @@
  * @swagger
  * /api/drivers/profile:
  *   get:
- *     summary: Récupérer le profil complet du chauffeur
+ *     summary: Récupérer le profil complet du chauffeur(les informations du cauffeur ainsi que la voiture )
  *     tags: [CHAUFFEUR]
  *     security:
  *       - bearerAuth: []

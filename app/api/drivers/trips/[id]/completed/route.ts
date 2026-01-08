@@ -3,7 +3,7 @@
  * @swagger
  * /api/drivers/trips/{id}/completed:
  *   put:
- *     summary: Terminer un trajet
+ *     summary: Terminer un trajet suivi d'alertes fin trajet
  *     tags: [CHAUFFEUR]
  */
 

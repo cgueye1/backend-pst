@@ -7,7 +7,7 @@ import { getUserFromRequest } from "@/lib/auth";
  * @swagger
  * /api/drivers/subscription:
  *   post:
- *     summary: Souscription a un abonnement suivie de paiement
+ *     summary: Souscription a un abonnement suivie de paiement et de recu electronique
  *     tags: [CHAUFFEUR]
  */
 export async function POST(request: NextRequest) {

@@ -40,13 +40,13 @@ UPDATE schools SET status = 'Actif' WHERE status IS NULL;
 
 ### Option 1 : Via psql (ligne de commande)
 ```bash
-psql -U votre_utilisateur -d votre_base_de_donnees -f backend/sql/add_schedule_to_schools.sql
+psql -U votre_utilisateur -d votre_base_de_donnees -f backend/sql/systemeSMS.sql
 ```
 
 ### Option 2 : Via un client PostgreSQL (pgAdmin, DBeaver, etc.)
 1. Ouvrez votre client PostgreSQL
 2. Connectez-vous à votre base de données
-3. Exécutez le contenu du fichier `backend/sql/add_schedule_to_schools.sql`
+3. Exécutez le contenu du fichier `backend/sql/systemeSMS.sql`
 
 ### Option 3 : Via psql interactif
 ```bash

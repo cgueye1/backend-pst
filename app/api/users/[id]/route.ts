@@ -43,7 +43,7 @@ export async function GET(req: Request, ctx: ParamsPromise) {
         const res = await getUserById(numId);
         return NextResponse.json(res);
     } catch (err) {
-        console.error("GET /api/users/[id]] error:", err);
+        console.error("GET /api/users/[messageId]] error:", err);
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }
@@ -58,17 +58,17 @@ export async function PUT(req: Request, ctx: ParamsPromise) {
         const { id } = await ctx.params;
         const numId = Number(id);
         if (Number.isNaN(numId)) {
-            console.error("PUT /api/users/[id]] invalid id:", id);
+            console.error("PUT /api/users/[messageId]] invalid id:", id);
             return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
         }
 
         const body = await req.json();
-        console.log("PUT /api/users/[id]] payload:", { id: numId, body });
+        console.log("PUT /api/users/[messageId]] payload:", { id: numId, body });
         const res = await updateUser(numId, body);
 
         return NextResponse.json(res);
     } catch (err) {
-        console.error("PUT /api/users/[id]] error:", err);
+        console.error("PUT /api/users/[messageId]] error:", err);
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }
@@ -84,14 +84,14 @@ export async function DELETE(req: Request, ctx: ParamsPromise) {
         const numId = Number(id);
         if (Number.isNaN(numId)) {
             console.error(
-"DELETE /api/users/[id]] invalid id:", id);
+"DELETE /api/users/[messageId]] invalid id:", id);
             return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
         }
 
         await deleteUser(numId);
         return NextResponse.json({ success: true });
     } catch (err) {
-        console.error("DELETE /api/users/[id]] error:", err);
+        console.error("DELETE /api/users/[messageId]] error:", err);
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }
