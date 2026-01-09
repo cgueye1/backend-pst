@@ -6,7 +6,7 @@ import { query } from "@/lib/db";
  * /api/parents/trips/{tripId}/realtime::
  *   get:
  *     summary: Suivre un trajet
- *     tags: [Parent]
+ *     tags: [Parents]
  */
 export async function GET(
     request: NextRequest,

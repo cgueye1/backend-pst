@@ -11,6 +11,15 @@ CREATE TABLE users (
 
                        created_at TIMESTAMP DEFAULT now()
 );
+-- Ajouter la colonne photo_profil pour tous les utilisateurs
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS photo_profil TEXT;
+
+-- Créer un index pour optimiser les requêtes
+CREATE INDEX IF NOT EXISTS idx_users_photo_profil ON users(photo_profil) WHERE photo_profil IS NOT NULL;
+
+-- Commentaire sur la colonne
+COMMENT ON COLUMN users.photo_profil IS 'URL ou chemin de la photo de profil de l''utilisateur';
 
 ALTER TABLE users
     ADD COLUMN address TEXT;

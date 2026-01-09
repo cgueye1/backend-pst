@@ -105,12 +105,12 @@ export async function PUT(
 
             let description = '';
             if (childrenNames.length === 1) {
-                description = `Le trajet de ${childrenNames[0]} est terminé. Merci d\'évaluer le chauffeur.`;
+                description = `Votre enfant est arrive a destination en toute securite`;
             } else if (childrenNames.length === 2) {
-                description = `Le trajet de ${childrenNames[0]} et ${childrenNames[1]} est terminé. Merci d\'évaluer le chauffeur.`;
+                description = `Votre enfant est arrive a destination en toute securite`;
             } else {
                 const lastChild = childrenNames.pop();
-                description = `Le trajet de ${childrenNames.join(', ')} et ${lastChild} est terminé. Merci d\'évaluer le chauffeur.`;
+                description = `Votre enfant est arrive a destination en toute securite`;
             }
             // Insérer UNE SEULE notification pour ce parent
             const notif = await query(

@@ -7,15 +7,13 @@ import {query} from "@/lib/db";
  * /api/parents/dashboard:
  *   get:
  *     summary: Tableau de bord parent
- *     tags: [Parent]
+ *     tags: [Parents]
  *     security:
  *       - BearerAuth: []
  */
 export async function GET(req: NextRequest) {
   try {
-    /* ============================
-       AUTHENTIFICATION
-    ============================ */
+    /*  AUTHENTIFICATION */
     const user = await getUserFromRequest(req);
 
     if (!user || user.role !== "parent") {
@@ -27,9 +25,7 @@ export async function GET(req: NextRequest) {
 
     const user_id = user.id;
 
-    /* ============================
-       1. TRAJETS À VENIR
-    ============================ */
+    /*  TRAJETS À VENIR */
     const upcomingTrips = await query(`
       SELECT 
         t.id as trip_id,
@@ -52,9 +48,7 @@ export async function GET(req: NextRequest) {
       LIMIT 10
     `, [user_id]);
 
-    /* ============================
-       2. STATISTIQUES
-    ============================ */
+    /* STATISTIQUES */
     const stats = await query(`
       SELECT
         COUNT(DISTINCT c.id) AS total_children,
@@ -68,9 +62,7 @@ export async function GET(req: NextRequest) {
       WHERE c.parent_id = $1
     `, [user_id]);
 
-    /* ============================
-       3. NOTIFICATIONS
-    ============================ */
+    /*  NOTIFICATIONS  */
     const notifications = await query(`
       SELECT 
         n.id,
@@ -86,9 +78,7 @@ export async function GET(req: NextRequest) {
       LIMIT 5
     `, [user_id]);
 
-    /* ============================
-       RÉPONSE FINALE
-    ============================ */
+    /* RÉPONSE FINALE */
     return NextResponse.json({
       success: true,
       data: {

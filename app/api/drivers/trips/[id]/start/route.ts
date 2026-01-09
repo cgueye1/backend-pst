@@ -94,7 +94,7 @@ export async function PUT(
     [tripId]
 );
 
-
+        const startPoint = result.rows[0].start_point;
         console.log("Parents à notifier:", parents.rows);
 
         //     Créer UNE SEULE notification par parent avec TOUS ses enfants
@@ -104,12 +104,12 @@ export async function PUT(
 
             let description = '';
             if (childrenNames.length === 1) {
-                description = `Le trajet de ${childrenNames[0]} a démarré`;
+                description = `Le conducteur a commencé le trajet vers ${startPoint}`;
             } else if (childrenNames.length === 2) {
-                description = `Le trajet de ${childrenNames[0]} et ${childrenNames[1]} a démarré`;
+                description = `Le conducteur a commencé le trajet vers ${startPoint}`;
             } else {
                 const lastChild = childrenNames.pop();
-                description = `Le trajet de ${childrenNames.join(', ')} et ${lastChild} a démarré`;
+                description = `Le conducteur a commencé le trajet vers ${startPoint}`;
             }
             // Insérer UNE SEULE notification pour ce parent
             const notif = await query(
