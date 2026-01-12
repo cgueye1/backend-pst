@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
         //   Paiement confirmé
         if (payment_status === "success" && type_event === "sale_complete") {
 
-            // 1️⃣ Récupérer le paiement (avec sécurité idempotente)
+            //  Récupérer le paiement (avec sécurité idempotente)
             const paymentRes = await query(
                 `SELECT id, user_id, amount, mobile_number, status
                  FROM payments
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
 
             const payment = paymentRes.rows[0];
 
-            // ⛔ Déjà traité → stop
+            //   Déjà traité → stop
             if (payment.status === "completed") {
                 console.log("Paiement déjà confirmé, SMS non renvoyé");
                 return NextResponse.json({ success: true });
             }
 
-            // 2️⃣ Marquer paiement comme complété
+            //  Marquer paiement comme complété
             await query(
                 `UPDATE payments
                  SET status = 'completed', updated_at = NOW()
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
                 [payment.id]
             );
 
-            // 3️⃣ Activer l’abonnement
+            //  Activer l’abonnement
             await query(
                 `UPDATE subscriptions
                  SET active = true, start_date = NOW()
@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
                 [payment.id]
             );
 
-            // 4️⃣ Générer numéro de reçu
+            //   Générer numéro de reçu
             const receiptNumber = `REC-${Date.now()}`;
 
-            // 5️⃣ Construire le SMS
+            // Construire le SMS
             const smsMessage = `
   Paiement confirmé
 
@@ -70,7 +70,7 @@ Réf : ${ref_command}
 Merci pour votre confiance.
             `.trim();
 
-            // 6️⃣ Envoyer le SMS
+            //   Envoyer le SMS
             if (payment.mobile_number) {
                 await sendSms(payment.mobile_number, smsMessage);
                 console.log("📩 Reçu SMS envoyé à", payment.mobile_number);
@@ -90,13 +90,13 @@ Merci pour votre confiance.
             console.log("Paiement annulé:", ref_command);
         }
 
-        // ⚠️ Toujours répondre 200 à PayTech
+        //   Toujours répondre 200 à PayTech
         return NextResponse.json({ success: true });
 
     } catch (err: any) {
-        console.error("❌ Erreur webhook PayTech:", err);
+        console.error(" Erreur webhook PayTech:", err);
 
-        // ⚠️ Toujours 200 pour éviter retry infini
+        //   Toujours 200 pour éviter retry infini
         return NextResponse.json({ success: false }, { status: 200 });
     }
 }

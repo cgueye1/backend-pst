@@ -2,6 +2,7 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/services/userServices.ts" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/sql/add_schedule_to_children.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/schema.sql" dialect="PostgreSQL" />
     <file url="file://$PROJECT_DIR$/sql/systemeSMS.sql" dialect="PostgreSQL" />
   </component>

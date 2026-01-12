@@ -143,6 +143,10 @@ ALTER TABLE trips
     ADD CONSTRAINT trips_status_check
         CHECK (status IN ('pending', 'in_progress', 'completed', 'canceled'));
 
+ALTER TABLE trips
+    ADD COLUMN distance_km DECIMAL(6,2),
+    ADD COLUMN price INT;
+
 
 CREATE TABLE trip_children (
                                trip_id INTEGER REFERENCES trips(id) ON DELETE CASCADE,

@@ -1,0 +1,372 @@
+/**
+ * @swagger
+ * /api/parents/children/{childId}:
+ *   get:
+ *     summary: Récupérer les détails d'un enfant
+ *     description: Retourne les informations complètes d'un enfant avec horaires personnalisés
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *   put:
+ *     summary: Modifier les informations d'un enfant
+ *     description: >
+ *       Permet de modifier le nom, l'école, l'adresse et les horaires personnalisés
+ *       d'un enfant. Les horaires peuvent être différents de ceux de l'école.
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *   delete:
+ *     summary: Supprimer un enfant
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '../../../../../../private-school-main/backend/lib/db';
+import { getUserFromRequest } from '../../../../../../private-school-main/backend/lib/auth';
+import { z } from 'zod';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+type Params = {
+    params: Promise<{ childId: string }>;
+};
+
+// Helper CORS
+function setCorsHeaders(response: NextResponse, origin: string | null) {
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+        ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
+        : ['http://localhost:4200', 'http://localhost:3000', 'http://localhost:4201'];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+    } else if (process.env.NODE_ENV === 'development') {
+        response.headers.set('Access-Control-Allow-Origin', origin || '*');
+    }
+    
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    return response;
+}
+
+export async function OPTIONS(req: NextRequest) {
+    const origin = req.headers.get('origin');
+    return setCorsHeaders(new NextResponse(null, { status: 204 }), origin);
+}
+
+export async function GET(req: NextRequest, context: Params) {
+    try {
+        const origin = req.headers.get('origin');
+        const user = await getUserFromRequest(req);
+
+        if (!user || user.role !== 'parent') {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Non autorisé' },
+                { status: 403 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        const { childId } = await context.params;
+
+        const result = await query(
+            `
+      SELECT 
+        c.id,
+        c.name,
+        c.address,
+        c.schedule,
+        c.created_at,
+        
+        -- École
+        s.id as school_id,
+        s.name as school_name,
+        s.address as school_address,
+        s.opening_time,
+        s.closing_time,
+        s.schedule as school_schedule,
+        
+        -- Trajets
+        json_agg(
+          DISTINCT jsonb_build_object(
+            'trip_id', t.id,
+            'departure_time', t.departure_time,
+            'status', t.status,
+            'start_point', t.start_point,
+            'end_point', t.end_point,
+            'is_recurring', t.is_recurring,
+            'driver_name', u_driver.name,
+            'driver_phone', u_driver.phone
+          ) ORDER BY t.departure_time DESC
+        ) FILTER (WHERE t.id IS NOT NULL) as trips
+        
+      FROM children c
+      LEFT JOIN schools s ON c.school_id = s.id
+      LEFT JOIN trip_children tc ON c.id = tc.child_id
+      LEFT JOIN trips t ON tc.trip_id = t.id
+      LEFT JOIN drivers d ON t.driver_id = d.id
+      LEFT JOIN users u_driver ON d.user_id = u_driver.id
+      
+      WHERE c.id = $1 AND c.parent_id = $2
+      
+      GROUP BY c.id, s.id
+      `,
+            [childId, user.id]
+        );
+
+        if (result.rows.length === 0) {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Enfant introuvable' },
+                { status: 404 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        const response = NextResponse.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+        return setCorsHeaders(response, origin);
+
+    } catch (error) {
+        console.error('Erreur récupération enfant:', error);
+        const origin = req.headers.get('origin');
+        const errorResponse = NextResponse.json(
+            { success: false, error: 'Erreur serveur' },
+            { status: 500 }
+        );
+        return setCorsHeaders(errorResponse, origin);
+    }
+}
+
+export async function PUT(req: NextRequest, context: Params) {
+    try {
+        const origin = req.headers.get('origin');
+        const user = await getUserFromRequest(req);
+
+        if (!user || user.role !== 'parent') {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Non autorisé' },
+                { status: 403 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        const { childId } = await context.params;
+        const body = await req.json();
+        const { name, school_id, address, schedule } = body;
+
+        // Vérifier que l'enfant appartient au parent
+        const childCheck = await query(
+            `SELECT id FROM children WHERE id = $1 AND parent_id = $2`,
+            [childId, user.id]
+        );
+
+        if (childCheck.rowCount === 0 || !childCheck.rowCount) {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Enfant introuvable ou non autorisé' },
+                { status: 403 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        // Validation avec Zod
+        const { createChildSchema } = await import('../../../../../../private-school-main/backend/lib/validations');
+
+        try {
+            if (name || school_id || address || schedule) {
+                createChildSchema.partial().parse({ name, school_id, address, schedule });
+            }
+        } catch (validationError: any) {
+            if (validationError instanceof z.ZodError) {
+                const errorResponse = NextResponse.json(
+                    { success: false, error: 'Données invalides', details: validationError.issues },
+                    { status: 400 }
+                );
+                return setCorsHeaders(errorResponse, origin);
+            }
+        }
+
+        // Validation basique
+        if (name && name.trim() === '') {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Le nom ne peut pas être vide' },
+                { status: 400 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        // Construire la requête SQL dynamiquement
+        const updates: string[] = [];
+        const queryParams: any[] = [];
+        let paramIndex = 1;
+
+        if (name !== undefined) {
+            updates.push(`name = $${paramIndex++}`);
+            queryParams.push(name);
+        }
+
+        if (school_id !== undefined) {
+            updates.push(`school_id = $${paramIndex++}`);
+            queryParams.push(school_id);
+        }
+
+        if (address !== undefined) {
+            updates.push(`address = $${paramIndex++}`);
+            queryParams.push(address);
+        }
+
+        if (schedule !== undefined && Array.isArray(schedule)) {
+            updates.push(`schedule = $${paramIndex++}`);
+            queryParams.push(JSON.stringify(schedule));
+        }
+
+        if (updates.length === 0) {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Aucune donnée à mettre à jour' },
+                { status: 400 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        queryParams.push(childId, user.id);
+
+        let result;
+        try {
+            result = await query(
+                `
+          UPDATE children
+          SET ${updates.join(', ')}
+          WHERE id = $${paramIndex} AND parent_id = $${paramIndex + 1}
+          RETURNING id, name, school_id, address, schedule, created_at
+          `,
+                queryParams
+            );
+        } catch (dbError: any) {
+            // Fallback si la colonne schedule n'existe pas
+            if (dbError.message && dbError.message.includes('column "schedule"')) {
+                console.warn('Colonne schedule inexistante, mise à jour sans schedule');
+                const updatesWithoutSchedule = updates.filter(u => !u.includes('schedule'));
+                const paramsWithoutSchedule = queryParams.slice(0, -2); // Retirer childId et user.id
+                
+                // Retirer le schedule des params
+                const scheduleIndex = updates.findIndex(u => u.includes('schedule'));
+                if (scheduleIndex >= 0) {
+                    paramsWithoutSchedule.splice(scheduleIndex, 1);
+                }
+                
+                paramsWithoutSchedule.push(childId, user.id);
+                
+                result = await query(
+                    `
+            UPDATE children
+            SET ${updatesWithoutSchedule.join(', ')}
+            WHERE id = $${paramsWithoutSchedule.length - 1} AND parent_id = $${paramsWithoutSchedule.length}
+            RETURNING id, name, school_id, address, created_at
+            `,
+                    paramsWithoutSchedule
+                );
+            } else {
+                throw dbError;
+            }
+        }
+
+        const response = NextResponse.json({
+            success: true,
+            message: 'Enfant mis à jour',
+            data: result.rows[0]
+        });
+
+        return setCorsHeaders(response, origin);
+
+    } catch (error: any) {
+        console.error('Erreur mise à jour enfant:', error);
+        const origin = req.headers.get('origin');
+        const errorResponse = NextResponse.json(
+            { success: false, error: error.message || 'Erreur serveur' },
+            { status: 500 }
+        );
+        return setCorsHeaders(errorResponse, origin);
+    }
+}
+
+export async function DELETE(req: NextRequest, context: Params) {
+    try {
+        const origin = req.headers.get('origin');
+        const user = await getUserFromRequest(req);
+
+        if (!user || user.role !== 'parent') {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Non autorisé' },
+                { status: 403 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        const { childId } = await context.params;
+
+        // Vérifier que l'enfant appartient au parent
+        const childCheck = await query(
+            `SELECT id FROM children WHERE id = $1 AND parent_id = $2`,
+            [childId, user.id]
+        );
+
+        if (childCheck.rowCount === 0 || !childCheck.rowCount) {
+            const errorResponse = NextResponse.json(
+                { success: false, error: 'Enfant introuvable ou non autorisé' },
+                { status: 404 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        // Vérifier s'il y a des trajets à venir
+        const upcomingTripsCheck = await query(
+            `
+      SELECT COUNT(*) as count
+      FROM trip_children tc
+      INNER JOIN trips t ON tc.trip_id = t.id
+      WHERE tc.child_id = $1
+        AND t.departure_time > NOW()
+        AND t.status = 'pending'
+      `,
+            [childId]
+        );
+
+        if (parseInt(upcomingTripsCheck.rows[0]?.count || '0') > 0) {
+            const errorResponse = NextResponse.json(
+                {
+                    success: false,
+                    error: 'Impossible de supprimer cet enfant. Il a des trajets à venir.'
+                },
+                { status: 400 }
+            );
+            return setCorsHeaders(errorResponse, origin);
+        }
+
+        // Supprimer l'enfant
+        await query(
+            `DELETE FROM children WHERE id = $1 AND parent_id = $2`,
+            [childId, user.id]
+        );
+
+        const response = NextResponse.json({
+            success: true,
+            message: 'Enfant supprimé avec succès'
+        });
+
+        return setCorsHeaders(response, origin);
+
+    } catch (error: any) {
+        console.error('Erreur suppression enfant:', error);
+        const origin = req.headers.get('origin');
+        const errorResponse = NextResponse.json(
+            { success: false, error: error.message || 'Erreur serveur' },
+            { status: 500 }
+        );
+        return setCorsHeaders(errorResponse, origin);
+    }
+}
