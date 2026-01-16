@@ -26,7 +26,11 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const month = Number(searchParams.get("month"));
         const year = Number(searchParams.get("year"));
-        const format = searchParams.get("format") || "pdf";
+        const formatParam = searchParams.get("format");
+        // Normaliser le format : convertir en minuscules et gérer les valeurs par défaut
+        const format = formatParam?.toLowerCase() === "excel" ? "excel" : "pdf";
+
+        console.log(`[Rapport paiements] Mois: ${month}, Année: ${year}, Format: ${format} (param reçu: ${formatParam})`);
 
 
 
@@ -59,7 +63,7 @@ export async function GET(req: NextRequest) {
                 COUNT(*) AS total_pending,
                 COALESCE(SUM(amount), 0) AS total_amount
             FROM payments
-            WHERE status = 'pending';
+            WHERE status = 'pending'
         `);
         const activeSubscriptions = await query(`
             SELECT COUNT(*)::int AS total
@@ -112,143 +116,155 @@ export async function GET(req: NextRequest) {
 
         // ================= PDF =================
         if (format === "pdf") {
-            const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-                const chunks: Buffer[] = [];
-                const fontPath = path.join(
-                    process.cwd(),
-                    "public",
-                    "fonts",
-                    "Roboto-Regular.ttf"
-                );
+            try {
+                const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+                    const chunks: Buffer[] = [];
+                    const fontPath = path.join(
+                        process.cwd(),
+                        "public",
+                        "fonts",
+                        "Roboto-Regular.ttf"
+                    );
 
-                if (!fs.existsSync(fontPath)) {
-                    throw new Error("Police introuvable");
-                }
+                    if (!fs.existsSync(fontPath)) {
+                        reject(new Error(`Police introuvable: ${fontPath}`));
+                        return;
+                    }
 
-                const doc = new PDFDocument({
-                    margin: 30,
-                    font: fontPath,
+                    const doc = new PDFDocument({
+                        margin: 30,
+                        font: fontPath,
+                    });
+
+                    // Logo de l’entreprise
+                    const logoPath = path.join(process.cwd(), "public/logo.png");
+                    if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 70 });
+
+                    doc.fontSize(18).text("RAPPORT DES PAIEMENTS", 130, 35);
+                    const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                    doc.fontSize(11)
+                        .text(`Mois : ${MONTHS_FR[month - 1]} ${year}`, 130, 60)
+                        .text(`Généré le : ${new Date().toLocaleDateString("fr-FR")}`, 130, 75);
+
+                    //   Ligne séparatrice
+                    doc.moveTo(40, 110).lineTo(550, 110).stroke();
+                    // Table header
+                    let y = 130;
+                    const colX = { client: 40, method: 220, amount: 350, date: 450, logo: 200 };
+                    doc.fontSize(11)
+                        .fillColor("black")
+                        .text("Client", colX.client, y, { width: 160 })
+                        .text("Méthode", colX.method, y)
+                        .text("Montant (CFA)", colX.amount, y)
+                        .text("Date", colX.date, y);
+
+                    doc.moveTo(40, y + 15).lineTo(550, y + 15).stroke();
+                    y += 25;
+
+                    // Table body
+                    let total = 0;
+                    payments.rows.forEach(p => {
+                        const amount = Number(p.amount) || 0;
+                        total += amount;
+                        const color = methodColorsPDF[p.method] || "black";
+                        const logo = methodLogos[p.method];
+
+                        // Logo de la méthode
+                        if (logo && fs.existsSync(logo)) {
+                            try {
+                                doc.image(logo, colX.logo, y - 3, { width: 15, height: 15 });
+                            } catch (err) {
+                                // Ignorer les erreurs de logo
+                            }
+                        }
+
+                        doc.fillColor(color)
+                            .fontSize(10)
+                            .text(p.user_name || "N/A", colX.client, y, { width: 160 })
+                            .text(p.method || "N/A", colX.method, y)
+                            .text(amount.toLocaleString("fr-FR"), colX.amount, y)
+                            .text(new Date(p.created_at).toLocaleDateString("fr-FR"), colX.date, y);
+
+                        doc.fillColor("black");
+                        y += 20;
+                        if (y > 750) { doc.addPage(); y = 50; }
+                    });
+
+                    // Total général
+                    doc.moveTo(40, y).lineTo(550, y).stroke();
+                    doc.fontSize(12).text(`TOTAL : ${total.toLocaleString("fr-FR")} CFA`, colX.amount, y + 10);
+
+                    // Récapitulatif par méthode
+                    doc.moveDown(1).fontSize(13).text("Récapitulatif par méthode de paiement");
+                    doc.moveDown(0.5);
+                    const recapTop = doc.y;
+                    const recapX = { method: 40, count: 260, total: 380, logo: 200 };
+                    doc.fontSize(11)
+                        .text("Méthode", recapX.method, recapTop)
+                        .text("Nombre", recapX.count, recapTop)
+                        .text("Total (CFA)", recapX.total, recapTop);
+                    doc.moveTo(40, recapTop + 15).lineTo(550, recapTop + 15).stroke();
+
+                    let recapY = recapTop + 25;
+                    let recapTotal = 0;
+                    let recapCount = 0;
+                    Object.entries(recapByMethod).forEach(([method, data]) => {
+                        const color = methodColorsPDF[method] || "black";
+                        const logo = data.logo;
+
+                        if (logo && fs.existsSync(logo)) doc.image(logo, recapX.logo, recapY - 3, { width: 15, height: 15 });
+
+                        doc.fillColor(color)
+                            .fontSize(10)
+                            .text(method, recapX.method, recapY)
+                            .text(data.count.toString(), recapX.count, recapY)
+                            .text(data.total.toLocaleString(), recapX.total, recapY);
+
+                        doc.fillColor("black");
+                        recapTotal += data.total;
+                        recapCount += data.count;
+                        recapY += 18;
+                    });
+
+                    doc.moveTo(40, recapY).lineTo(550, recapY).stroke();
+                    doc.fontSize(11)
+                        .text("TOTAL", recapX.method, recapY + 5)
+                        .text(recapCount.toString(), recapX.count, recapY + 5)
+                        .text(recapTotal.toLocaleString(), recapX.total, recapY + 5);
+
+
+
+                    // --- Abonnements Actifs ---
+                    doc.moveDown(2)
+                        .fontSize(13)
+                        .text(`Abonnements Actifs : ${activeSubscriptions.rows[0]?.total || 0}`, 40);
+
+                    // --- Revenus Mensuels ---
+                    doc.moveDown(1)
+                        .fontSize(13)
+                        .text(`Revenus Mensuels: ${revenueMonthlyEnCours.rows[0]?.total || 0} CFA`, 40);
+
+                    // --- Paiements en Attente ---
+                    doc.moveDown(1)
+                        .fontSize(13)
+                        .text(`Paiements en Attente : (${pendingPayments.rows[0]?.total_amount || 0} CFA)`, 40);
+
+                    doc.end();
+                    doc.on("data", chunk => chunks.push(chunk));
+                    doc.on("end", () => resolve(Buffer.concat(chunks)));
+                    doc.on("error", reject);
                 });
 
-                // Logo de l’entreprise
-                const logoPath = path.join(process.cwd(), "public/logo.png");
-                if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 70 });
-
-                doc.fontSize(18).text("RAPPORT DES PAIEMENTS", 130, 35);
-                const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-                doc.fontSize(11)
-                    .text(`Mois : ${MONTHS_FR[month - 1]} ${year}`, 130, 60)
-                    .text(`Généré le : ${new Date().toLocaleDateString("fr-FR")}`, 130, 75);
-
-                //   Ligne séparatrice
-                doc.moveTo(40, 110).lineTo(550, 110).stroke();
-                // Table header
-                let y = 130;
-                const colX = { client: 40, method: 220, amount: 350, date: 450, logo: 200 };
-                doc.fontSize(11)
-                    .fillColor("black")
-                    .text("Client", colX.client, y, { width: 160 })
-                    .text("Méthode", colX.method, y)
-                    .text("Montant (CFA)", colX.amount, y)
-                    .text("Date", colX.date, y);
-
-                doc.moveTo(40, y + 15).lineTo(550, y + 15).stroke();
-                y += 25;
-
-                // Table body
-                let total = 0;
-                payments.rows.forEach(p => {
-                    total += Number(p.amount);
-                    const color = methodColorsPDF[p.method] || "black";
-                    const logo = methodLogos[p.method];
-
-                    // Logo de la méthode
-                    if (logo && fs.existsSync(logo)) doc.image(logo, colX.logo, y - 3, { width: 15, height: 15 });
-
-                    doc.fillColor(color)
-                        .fontSize(10)
-                        .text(p.user_name, colX.client, y, { width: 160 })
-                        .text(p.method, colX.method, y)
-                        .text(p.amount.toLocaleString("fr-FR"), colX.amount, y)
-                        .text(new Date(p.created_at).toLocaleDateString("fr-FR"), colX.date, y);
-
-                    doc.fillColor("black");
-                    y += 20;
-                    if (y > 750) { doc.addPage(); y = 50; }
+                return new NextResponse(new Uint8Array(pdfBuffer), {
+                    headers: {
+                        "Content-Type": "application/pdf",
+                        "Content-Disposition": `inline; filename=rapport_paiements_${month}_${year}.pdf`,
+                    },
                 });
-
-                // Total général
-                doc.moveTo(40, y).lineTo(550, y).stroke();
-                doc.fontSize(12).text(`TOTAL : ${total.toLocaleString("fr-FR")} CFA`, colX.amount, y + 10);
-
-                // Récapitulatif par méthode
-                doc.moveDown(1).fontSize(13).text("Récapitulatif par méthode de paiement");
-                doc.moveDown(0.5);
-                const recapTop = doc.y;
-                const recapX = { method: 40, count: 260, total: 380, logo: 200 };
-                doc.fontSize(11)
-                    .text("Méthode", recapX.method, recapTop)
-                    .text("Nombre", recapX.count, recapTop)
-                    .text("Total (CFA)", recapX.total, recapTop);
-                doc.moveTo(40, recapTop + 15).lineTo(550, recapTop + 15).stroke();
-
-                let recapY = recapTop + 25;
-                let recapTotal = 0;
-                let recapCount = 0;
-                Object.entries(recapByMethod).forEach(([method, data]) => {
-                    const color = methodColorsPDF[method] || "black";
-                    const logo = data.logo;
-
-                    if (logo && fs.existsSync(logo)) doc.image(logo, recapX.logo, recapY - 3, { width: 15, height: 15 });
-
-                    doc.fillColor(color)
-                        .fontSize(10)
-                        .text(method, recapX.method, recapY)
-                        .text(data.count.toString(), recapX.count, recapY)
-                        .text(data.total.toLocaleString(), recapX.total, recapY);
-
-                    doc.fillColor("black");
-                    recapTotal += data.total;
-                    recapCount += data.count;
-                    recapY += 18;
-                });
-
-                doc.moveTo(40, recapY).lineTo(550, recapY).stroke();
-                doc.fontSize(11)
-                    .text("TOTAL", recapX.method, recapY + 5)
-                    .text(recapCount.toString(), recapX.count, recapY + 5)
-                    .text(recapTotal.toLocaleString(), recapX.total, recapY + 5);
-
-
-
-// --- Abonnements Actifs ---
-                doc.moveDown(2)
-                    .fontSize(13)
-                    .text(`Abonnements Actifs : ${activeSubscriptions.rows[0].total}`,40);
-
-// --- Revenus Mensuels ---
-                doc.moveDown(1)
-                    .fontSize(13)
-                    .text( `Revenus Mensuels: ${revenueMonthlyEnCours.rows[0].total || 0} CFA`, 40)
-                    ;
-
-// --- Paiements en Attente ---
-                doc.moveDown(1)
-                    .fontSize(13)
-                    .text(`Paiements en Attente : (${pendingPayments.rows[0].total_amount} CFA)`, 40);
-
-                doc.end();
-                doc.on("data", chunk => chunks.push(chunk));
-                doc.on("end", () => resolve(Buffer.concat(chunks)));
-                doc.on("error", reject);
-            });
-
-            return new NextResponse(new Uint8Array(pdfBuffer), {
-                headers: {
-                    "Content-Type": "application/pdf",
-                    "Content-Disposition": `inline; filename=rapport_paiements_${month}_${year}.pdf`,
-                },
-            });
+            } catch (pdfError) {
+                console.error("Erreur génération PDF:", pdfError);
+                throw pdfError;
+            }
         }
 
         // ================= EXCEL =================
@@ -271,8 +287,8 @@ export async function GET(req: NextRequest) {
                     created_at: new Date(p.created_at).toLocaleDateString("fr-FR"),
                 });
 
-                const color = methodColorsPDF[p.method] ;
-                row.getCell(2).fill = { type:'pattern', pattern:'solid', fgColor:{ argb: color } };
+                const color = methodColorsPDF[p.method];
+                row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
             });
 
             sheet.addRow([]);
@@ -281,8 +297,8 @@ export async function GET(req: NextRequest) {
 
             Object.entries(recapByMethod).forEach(([method, data]) => {
                 const row = sheet.addRow([method, data.count, data.total]);
-                const color = methodColorsPDF[method]  ;
-                row.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb: color } };
+                const color = methodColorsPDF[method];
+                row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
             });
 
 
@@ -297,9 +313,14 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ error: "Format non supporté" }, { status: 400 });
 
-    } catch (err) {
-        console.error("REPORT ERROR", err);
-        return NextResponse.json({ error: "Erreur génération rapport" }, { status: 500 });
+    } catch (err: any) {
+        console.error("REPORT ERROR:", err);
+        console.error("Stack:", err?.stack);
+        return NextResponse.json({
+            error: "Erreur génération rapport",
+            message: err?.message || "Erreur inconnue",
+            details: process.env.NODE_ENV === 'development' ? err?.stack : undefined
+        }, { status: 500 });
     }
 
 }

@@ -21,6 +21,8 @@ export async function GET() {
             t.capacity_max,
             t.status,
             t.is_recurring,
+            t.distance_km,
+            t.price,
             t.created_at,
 
             d.user_id AS driver_user_id,

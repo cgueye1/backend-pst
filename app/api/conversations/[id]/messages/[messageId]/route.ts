@@ -10,12 +10,16 @@ import {query} from "@/lib/db";
  *     summary: Modifier un message EN TEMPS RÉEL
  *     tags: [Messagerie]
  */
-export async function PATCH(req: NextRequest, { params }: { params: { messageId: string } }) {
+type Params = {
+    params: Promise<{ messageId: string }>;
+};
+
+export async function PATCH(req: NextRequest, context: Params) {
     try {
         const user = await getUserFromRequest(req);
         if (!user) return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
 
-        const { messageId } = params;
+        const { messageId } = await context.params;
         const { user_id } = user;
         const body = await req.json();
         const { content } = body;
@@ -57,12 +61,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { messageId:
  *     summary: Supprimer un message EN TEMPS RÉEL
  *     tags: [Messagerie]
  */
-export async function DELETE(req: NextRequest, { params }: { params: { messageId: string } }) {
+export async function DELETE(req: NextRequest, context: Params) {
     try {
         const user = await getUserFromRequest(req);
         if (!user) return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
 
-        const { messageId } = params;
+        const { messageId } = await context.params;
         const { user_id } = user;
 
         // Vérifier l'auteur

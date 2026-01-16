@@ -13,15 +13,25 @@ export async function GET(
             : context.params;
         
         const filePath = params.path.join('/');
-        const fullPath = path.join(process.cwd(), 'uploads', filePath);
+        // Dans Docker, utiliser directement /app/uploads
+        // En local, utiliser process.cwd() + uploads
+        const isDocker = fs.existsSync('/app/uploads');
+        const uploadsBase = isDocker ? '/app/uploads' : path.join(process.cwd(), 'uploads');
+        const fullPath = path.join(uploadsBase, filePath);
+
+        console.log('Upload request - filePath:', filePath);
+        console.log('Upload request - fullPath:', fullPath);
+        console.log('Upload request - exists:', fs.existsSync(fullPath));
 
         // Vérifier que le fichier existe et est dans le dossier uploads (sécurité)
-        if (!fullPath.startsWith(path.join(process.cwd(), 'uploads'))) {
+        if (!fullPath.startsWith(uploadsBase)) {
+            console.error('Access denied - path outside uploads:', fullPath);
             return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
         }
 
         if (!fs.existsSync(fullPath)) {
-            return NextResponse.json({ error: 'Fichier non trouvé' }, { status: 404 });
+            console.error('File not found:', fullPath);
+            return NextResponse.json({ error: 'Fichier non trouvé', path: fullPath }, { status: 404 });
         }
 
         const fileBuffer = fs.readFileSync(fullPath);

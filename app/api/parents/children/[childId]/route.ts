@@ -23,8 +23,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '../../../../../../private-school-main/backend/lib/db';
-import { getUserFromRequest } from '../../../../../../private-school-main/backend/lib/auth';
+import { query } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -175,7 +175,12 @@ export async function PUT(req: NextRequest, context: Params) {
         }
 
         // Validation avec Zod
-        const { createChildSchema } = await import('../../../../../../private-school-main/backend/lib/validations');
+        const createChildSchema = z.object({
+            name: z.string().min(1).max(150).optional(),
+            school_id: z.number().int().positive().optional(),
+            address: z.string().optional(),
+            schedule: z.array(z.any()).optional()
+        });
 
         try {
             if (name || school_id || address || schedule) {

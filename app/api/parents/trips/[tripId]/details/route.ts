@@ -28,8 +28,6 @@ export async function GET(
         }
 
         const { tripId } = await params;
-        console.log("USER ID:", user.user_id);
-        console.log("TRIP ID:", tripId);
 
         const result = await query(
             `

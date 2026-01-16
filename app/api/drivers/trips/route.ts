@@ -1,30 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import jwt from "jsonwebtoken";
+import { query } from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
 /**
  * @swagger
  * /api/drivers/trips:
  *   get:
  *     summary: Récupérer LA Liste des trajets du chauffeur CONNECTE
  *     tags: [CHAUFFEUR]
-
+ *
  *   post:
  *     summary: Créer un nouveau trajet
  *     tags: [CHAUFFEUR]
  */
 export async function GET(request: NextRequest) {
     try {
-        //   Récupérer le token
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader?.startsWith("Bearer ")) {
+        const user = await getUserFromRequest(request);
+        if (!user || user.role !== 'driver') {
             return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
         }
 
-        const token = authHeader.split(" ")[1];
+        // Récupérer le driver_id depuis la table drivers
+        const driverResult = await query(
+            `SELECT id FROM drivers WHERE user_id = $1`,
+            [user.id]
+        );
 
-        //  Décoder le JWT
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-        const driverId = decoded.id;
+        if (driverResult.rowCount === 0) {
+            return NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+        }
+
+        const driverId = driverResult.rows[0].id;
 
         //  Récupérer les query params
         const { searchParams } = new URL(request.url);
@@ -55,7 +60,7 @@ export async function GET(request: NextRequest) {
             params.push(date_to);
         }
 
-        const trips = await db.query(
+        const trips = await query(
             `
       SELECT t.*
       FROM trips t
@@ -80,14 +85,30 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const authHeader = request.headers.get("authorization");
-        if (!authHeader?.startsWith("Bearer ")) {
+        const user = await getUserFromRequest(request);
+        if (!user || user.role !== 'driver') {
             return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
         }
 
-        const token = authHeader.split(" ")[1];
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-        const driverId = decoded.id;
+        // Récupérer le driver_id depuis la table drivers
+        const driverResult = await query(
+            `SELECT id, status, capacity FROM drivers WHERE user_id = $1`,
+            [user.id]
+        );
+
+        if (driverResult.rowCount === 0) {
+            return NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+        }
+
+        const driver = driverResult.rows[0];
+        if (driver.status !== 'Approuvé') {
+            return NextResponse.json(
+                { error: "Votre compte chauffeur est en attente d'approbation" },
+                { status: 403 }
+            );
+        }
+
+        const driverId = driver.id;
 
         const body = await request.json();
         const { start_point, end_point, departure_time, capacity_max, school_id, is_recurring } = body;
@@ -99,13 +120,41 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const result = await db.query(
+        // Vérifier que la capacité du trajet ne dépasse pas celle du véhicule
+        const capacityMaxNum = Number(capacity_max);
+        if (isNaN(capacityMaxNum) || capacityMaxNum <= 0) {
+            return NextResponse.json(
+                { success: false, message: "La capacité doit être un nombre positif" },
+                { status: 400 }
+            );
+        }
+
+        if (capacityMaxNum > driver.capacity) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: `La capacité du trajet (${capacityMaxNum}) dépasse celle de votre véhicule (${driver.capacity})`
+                },
+                { status: 400 }
+            );
+        }
+
+        // Vérifier que le trajet n'est pas dans le passé
+        const departureDate = new Date(departure_time);
+        if (departureDate < new Date()) {
+            return NextResponse.json(
+                { success: false, message: "Impossible de créer un trajet dans le passé" },
+                { status: 400 }
+            );
+        }
+
+        const result = await query(
             `
                 INSERT INTO trips (driver_id, school_id, start_point, end_point, departure_time, capacity_max, is_recurring, status)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
                     RETURNING *
             `,
-            [driverId, school_id, start_point, end_point, departure_time, capacity_max, is_recurring || false]
+            [driverId, school_id, start_point, end_point, departure_time, capacityMaxNum, is_recurring || false]
         );
 
         return NextResponse.json(

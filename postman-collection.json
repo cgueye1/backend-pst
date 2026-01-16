@@ -1,0 +1,496 @@
+{
+    "info": {
+        "name": "Transport Scolaire - Mobile API",
+        "description": "Collection de test pour les endpoints mobile",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "parent_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "driver_token",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login Parent",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('parent_token', jsonData.token);",
+                                    "    console.log('Token parent sauvegardé');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"parent@example.com\",\n  \"password\": \"password123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Login Chauffeur",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('driver_token', jsonData.token);",
+                                    "    console.log('Token chauffeur sauvegardé');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"driver@example.com\",\n  \"password\": \"password123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Parent",
+            "item": [
+                {
+                    "name": "Dashboard Parent",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/dashboard",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "dashboard"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Recherche Trajets",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/trips/search?child_id=1&date=2024-12-20&min_rating=4",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "trips",
+                                "search"
+                            ],
+                            "query": [
+                                {
+                                    "key": "child_id",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "date",
+                                    "value": "2024-12-20"
+                                },
+                                {
+                                    "key": "min_rating",
+                                    "value": "4"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Réserver Trajet",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"trip_id\": 1,\n  \"child_ids\": [1],\n  \"is_recurring\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/reservations",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "reservations"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Double Réservation (Test Bug)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"trip_id\": 1,\n  \"child_ids\": [1]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/reservations",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "reservations"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Liste Réservations",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/reservations?status=pending",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "reservations"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Paiement Trajet",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{parent_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"trip_id\": 1,\n  \"payment_method\": \"mobile_money\",\n  \"mobile_provider\": \"wave\",\n  \"mobile_number\": \"+221771234567\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/parents/payment",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "parents",
+                                "payment"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Chauffeur",
+            "item": [
+                {
+                    "name": "Dashboard Chauffeur",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/dashboard",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "dashboard"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Liste Trajets",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips?status=pending",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Créer Trajet",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"start_point\": \"Dakar, Plateau\",\n  \"end_point\": \"École ABC, Almadies\",\n  \"departure_time\": \"2024-12-25T08:00:00Z\",\n  \"capacity_max\": 4,\n  \"school_id\": 1,\n  \"is_recurring\": false\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Créer Trajet Capacité Erronée (Test Bug)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"start_point\": \"Dakar\",\n  \"end_point\": \"École\",\n  \"departure_time\": \"2024-12-25T08:00:00Z\",\n  \"capacity_max\": 20,\n  \"school_id\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Démarrer Trajet",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips/1/start",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips",
+                                "1",
+                                "start"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Terminer Trajet",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips/1/completed",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips",
+                                "1",
+                                "completed"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Terminer Trajet Sans Démarrer (Test Bug)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{driver_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/drivers/trips/1/completed",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "drivers",
+                                "trips",
+                                "1",
+                                "completed"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
+

@@ -23,6 +23,7 @@ type Params = {
 };
 
 // GET: Récupérer un trajet par ID
+// GET: Récupérer un trajet par ID avec info chauffeur
 export async function GET(req: NextRequest, context: Params) {
     try {
         const { id } = await context.params;
@@ -32,19 +33,47 @@ export async function GET(req: NextRequest, context: Params) {
             return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
         }
 
-        const res = await query('SELECT * FROM trips WHERE id=$1', [numericId]);
+        // Requête SQL avec jointure sur driver et user
+        const res = await query(
+            `
+      SELECT 
+        t.*,
+        d.id AS driver_id,
+        d.user_id AS driver_user_id,
+        u.name AS driver_name, 
+        u.email AS driver_email
+      FROM trips t
+      LEFT JOIN drivers d ON t.driver_id = d.id
+      LEFT JOIN users u ON d.user_id = u.id
+      WHERE t.id = $1
+      `,
+            [numericId]
+        );
 
         if (res.rowCount === 0) {
             return NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
         }
 
-        return NextResponse.json(res.rows[0]);
+        // Transformer le résultat pour inclure un objet chauffeur plus clair
+        const trip = res.rows[0];
+        const result = {
+            ...trip,
+            driver: trip.driver_id
+                ? {
+                    id: trip.driver_id,
+                    userId: trip.driver_user_id,
+                    name: trip.driver_name,
+                    email: trip.driver_email,
+                }
+                : null, // null si pas de chauffeur
+        };
+
+        return NextResponse.json(result);
     } catch (error) {
         console.error('GET trip error:', error);
         return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
     }
 }
-
 // PUT: Mettre à jour un trajet complet
 export async function PUT(req: NextRequest, context: Params) {
     try {
@@ -179,9 +208,8 @@ export async function PATCH(req: NextRequest, context: Params) {
         const updateResult = await query(
             `UPDATE trips
              SET driver_id = $1, 
-                 status = CASE WHEN status = 'En attente' THEN 'Confirmé' ELSE status END,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2
+                 status = CASE WHEN status = 'En attente' THEN 'Confirmé' ELSE status END 
+               WHERE id = $2
              RETURNING *`,
             [driver_id, tripId]
         );

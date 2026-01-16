@@ -18,7 +18,6 @@ export async function PUT(
     try {
         // Récupérer l'utilisateur connecté
         const user = await getUserFromRequest(request);
-        console.log("User connecté:", user);
 
         if (!user || user.role !== 'driver') {
             return NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
@@ -29,8 +28,6 @@ export async function PUT(
             `SELECT id, status FROM drivers WHERE user_id = $1`,
             [user.id]
         );
-
-        console.log("Driver récupéré:", driverResult.rows[0]);
 
         if (driverResult.rowCount === 0) {
             return NextResponse.json({ error: 'Chauffeur introuvable' }, { status: 404 });
@@ -48,69 +45,62 @@ export async function PUT(
         }
 
         const driverId = driver.id;
-
-        // ✅ Unwrap la Promise params
         const { id: tripId } = await params;
-        console.log("tripId reçu:", tripId, "driverId:", driverId);
 
-        // Mettre à jour le statut du trajet
+        // Mettre à jour le statut du trajet (SEULEMENT depuis in_progress - transition logique)
         const result = await query(
             `UPDATE trips
              SET status = 'completed'
              WHERE id = $1
                AND driver_id = $2
-               AND status IN ('pending', 'in_progress')
+               AND status = 'in_progress'
              RETURNING *`,
             [tripId, driverId]
         );
-
-        console.log("Résultat UPDATE:", result.rows);
 
         if (result.rows.length === 0) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Trajet introuvable ou déjà terminé"
+                    message: "Trajet introuvable ou pas encore démarré. Un trajet doit être démarré avant d'être complété."
                 },
                 { status: 404 }
             );
         }
 
-        //     Récupérer les parents (utilisez tripId, pas id)
+        // Récupérer les parents
         const parents = await query(
             `SELECT
-                 u.id as parent_id,
-                 u.name as parent_name,
-                 json_agg(
-                         json_build_object(
-                                 'child_id', c.id,
-                                 'child_name', c.name
-                         )
-                 ) as children
-             FROM trip_children tc
-                      JOIN children c ON tc.child_id = c.id
-                      JOIN users u ON c.parent_id = u.id
-             WHERE tc.trip_id = $1
-             GROUP BY u.id, u.name`,
+                u.id as parent_id,
+                u.name as parent_name,
+                json_agg(
+                    json_build_object(
+                        'child_id', c.id,
+                        'child_name', c.name
+                    )
+                ) as children
+            FROM trip_children tc
+            JOIN children c ON tc.child_id = c.id
+            JOIN users u ON c.parent_id = u.id
+            WHERE tc.trip_id = $1
+            GROUP BY u.id, u.name`,
             [tripId]
         );
 
-
-        console.log("Parents à notifier:", parents.rows);
-
-        //     Créer UNE SEULE notification par parent avec TOUS ses enfants
+        // Créer une notification personnalisée par parent
         for (const parent of parents.rows) {
-            // parent.children est déjà un tableau
             const childrenNames = parent.children.map((child: any) => child.child_name);
-
+            
+            // Personnaliser le message selon le nombre d'enfants
             let description = '';
             if (childrenNames.length === 1) {
-                description = `Votre enfant est arrive a destination en toute securite`;
+                description = `${childrenNames[0]} est arrivé(e) à destination en toute sécurité`;
             } else if (childrenNames.length === 2) {
-                description = `Votre enfant est arrive a destination en toute securite`;
+                description = `${childrenNames[0]} et ${childrenNames[1]} sont arrivé(e)s à destination en toute sécurité`;
             } else {
-                const lastChild = childrenNames.pop();
-                description = `Votre enfant est arrive a destination en toute securite`;
+                const lastChild = childrenNames[childrenNames.length - 1];
+                const otherChildren = childrenNames.slice(0, -1).join(', ');
+                description = `${otherChildren} et ${lastChild} sont arrivé(e)s à destination en toute sécurité`;
             }
             // Insérer UNE SEULE notification pour ce parent
             const notif = await query(

@@ -17,18 +17,34 @@ import { query } from "@/lib/db";
 
 
 export async function GET() {
-    const res = await query(`
-        SELECT
-            t.id,
-            t.start_point,
-            t.end_point,
-            s.name AS school_name 
-            FROM trips t 
-            LEFT JOIN schools s ON s.id = t.school_id
-        ORDER BY t.created_at DESC
-    `);
+    try {
+        const res = await query(`
+            SELECT
+                t.id,
+                t.start_point,
+                t.end_point,
+                t.departure_time,
+                t.driver_id,
+                s.name AS school_name
+            FROM trips t
+                     LEFT JOIN schools s ON s.id = t.school_id
+            WHERE t.driver_id IS NULL
+              AND t.departure_time >= CURRENT_TIMESTAMP
+            ORDER BY t.created_at DESC
+        `);
+        console.log(`[GET /api/trips] ${res.rows.length} trajets trouvés`);
+        if (res.rows.length > 0) {
+            console.log('Premier trajet:', JSON.stringify(res.rows[0], null, 2));
+        }
 
-    return NextResponse.json(res.rows);
+        return NextResponse.json(res.rows);
+    } catch (error) {
+        console.error('Erreur dans GET /api/trips:', error);
+        return NextResponse.json(
+            { error: 'Erreur lors de la récupération des trajets' },
+            { status: 500 }
+        );
+    }
 }
 
 
@@ -104,16 +120,40 @@ export async function POST(req: Request) {
             is_recurring
         } = await req.json();
 
-        if (!driver_id || !school_id || !start_point || !end_point || !departure_time) {
-            return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
+        // Validation des champs obligatoires
+        if (!start_point || !end_point || !departure_time || !capacity_max) {
+            return NextResponse.json({
+                error: "Champs obligatoires manquants",
+                message: "start_point, end_point, departure_time et capacity_max sont requis"
+            }, { status: 400 });
         }
 
         // 1️⃣ Géocodage des adresses
-        const startCoords = await geocode(start_point);
-        const endCoords = await geocode(end_point);
+        let startCoords, endCoords;
+        try {
+            startCoords = await geocode(start_point);
+            endCoords = await geocode(end_point);
+        } catch (geoError: any) {
+            console.error("Erreur géocodage:", geoError);
+            return NextResponse.json({
+                error: "Erreur lors du géocodage des adresses",
+                message: geoError?.message || "Impossible de localiser les adresses"
+            }, { status: 400 });
+        }
 
         // 2️⃣ Calcul distance et durée
-        const { distanceMeters, durationSeconds } = await getDistanceOSRM(startCoords, endCoords);
+        let distanceMeters, durationSeconds;
+        try {
+            const result = await getDistanceOSRM(startCoords, endCoords);
+            distanceMeters = result.distanceMeters;
+            durationSeconds = result.durationSeconds;
+        } catch (osrmError: any) {
+            console.error("Erreur calcul distance OSRM:", osrmError);
+            // En cas d'erreur OSRM, utiliser une distance par défaut (0) ou estimée
+            distanceMeters = 0;
+            durationSeconds = 0;
+            console.warn("Utilisation de distance par défaut (0 km)");
+        }
 
         // 3️⃣ Calcul du prix
         const price = calculatePrice(distanceMeters, is_recurring || false);
@@ -121,38 +161,80 @@ export async function POST(req: Request) {
         // 4️⃣ Extraire uniquement la date pour vérification vacances/jours fériés
         const tripDate = new Date(departure_time).toISOString().split("T")[0];
 
-        // 5️⃣ Vérifier vacances scolaires
-        const vacation = await query(
-            `SELECT 1 FROM school_vacations WHERE school_id = $1 AND $2::date BETWEEN start_date AND end_date LIMIT 1`,
-            [school_id, tripDate]
-        );
-        if (Number(vacation.rowCount) > 0) {
-            return NextResponse.json({ error: "Impossible de créer un trajet pendant les vacances scolaires", type: "HOLIDAY" }, { status: 400 });
+        // 5️⃣ Vérifier vacances scolaires (seulement si school_id est fourni)
+        if (school_id) {
+            try {
+                const vacation = await query(
+                    `SELECT 1 FROM school_vacations WHERE school_id = $1 AND $2::date BETWEEN start_date AND end_date LIMIT 1`,
+                    [school_id, tripDate]
+                );
+                if (Number(vacation.rowCount) > 0) {
+                    return NextResponse.json({ error: "Impossible de créer un trajet pendant les vacances scolaires", type: "HOLIDAY" }, { status: 400 });
+                }
+            } catch (vacError: any) {
+                console.warn("Erreur vérification vacances:", vacError);
+                // Continue même en cas d'erreur
+            }
         }
 
         // 6️⃣ Vérifier jour férié
-        const holiday = await query(`SELECT 1 FROM public_holidays WHERE date = DATE($1) LIMIT 1`, [tripDate]);
-        if (Number(holiday.rowCount) > 0) {
-            return NextResponse.json({ error: "Impossible de créer un trajet un jour férié", type: "FERIE" }, { status: 400 });
+        try {
+            const holiday = await query(`SELECT 1 FROM public_holidays WHERE date = $1::date LIMIT 1`, [tripDate]);
+            if (Number(holiday.rowCount) > 0) {
+                return NextResponse.json({ error: "Impossible de créer un trajet un jour férié", type: "FERIE" }, { status: 400 });
+            }
+        } catch (holError: any) {
+            console.warn("Erreur vérification jour férié:", holError);
+            // Continue même en cas d'erreur
         }
 
         // 7️⃣ Création du trajet
+        // Convertir distanceMeters (mètres) en distance_km (kilomètres)
+        const distanceKm = distanceMeters > 0 ? distanceMeters / 1000 : null;
+
+        // Validation capacity_max
+        const capacityMax = Number(capacity_max);
+        if (isNaN(capacityMax) || capacityMax <= 0) {
+            return NextResponse.json({
+                error: "capacity_max doit être un nombre positif"
+            }, { status: 400 });
+        }
+
         const resTrip = await query(
             `INSERT INTO trips
-             (driver_id, school_id, start_point, end_point, departure_time, capacity_max, is_recurring, distance_km,  price)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             (driver_id, school_id, start_point, end_point, departure_time, capacity_max, is_recurring, distance_km, price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING *`,
-            [driver_id, school_id, start_point, end_point, departure_time, capacity_max, is_recurring || false, distanceMeters, price]
+            [
+                driver_id || null,
+                school_id || null,
+                start_point,
+                end_point,
+                departure_time,
+                capacityMax,
+                Boolean(is_recurring),
+                distanceKm,
+                price || null
+            ]
         );
 
         return NextResponse.json(resTrip.rows[0], { status: 201 });
 
     } catch (error: any) {
         console.error("Erreur création trip :", error);
-        return NextResponse.json({ message: "Erreur lors de la création du trajet", details: error.message }, { status: 500 });
+        console.error("Stack:", error?.stack);
+        console.error("Détails:", {
+            message: error?.message,
+            code: error?.code,
+            detail: error?.detail
+        });
+        return NextResponse.json({
+            message: "Erreur lors de la création du trajet",
+            error: error?.message || "Erreur inconnue",
+            details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        }, { status: 500 });
     }
 }
-
 
 
 

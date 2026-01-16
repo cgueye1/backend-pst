@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
-import {emitToConversation, notifyConversationParticipants} from "@/lib/emitters";
+import { emitToConversation, notifyConversationParticipants } from "@/lib/emitters";
 import { query } from "@/lib/db";
 /**
  * @swagger
@@ -21,14 +21,14 @@ export async function GET(req: NextRequest, context: Params) {
         if (!user) return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
 
         const { id } = await context.params;
-        const user_id = user.user_id || user.id;
+        const user_id = user.id;
         const url = new URL(req.url);
         const limit = parseInt(url.searchParams.get("limit") || "50");
         const offset = parseInt(url.searchParams.get("offset") || "0");
         const before_message_id = url.searchParams.get("before_message_id");
 
         // Vérifier la participation
-        const isParticipant = await  query(
+        const isParticipant = await query(
             `SELECT 1 FROM conversation_participants WHERE conversation_id=$1 AND user_id=$2 AND left_at IS NULL`,
             [id, user_id]
         );
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, context: Params) {
         quer += ` ORDER BY m.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         paramsArray.push(limit, offset);
 
-        const result = await  query(quer, paramsArray);
+        const result = await query(quer, paramsArray);
 
         return NextResponse.json({
             success: true,
@@ -99,7 +99,7 @@ export async function POST(
         const user = await getUserFromRequest(req);
         if (!user) return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
 
-        const user_id = user.user_id || user.id;
+        const user_id = user.id;
 
         const body = await req.json();
         const { content, message_type = "text", parent_message_id = null } = body;
@@ -109,7 +109,7 @@ export async function POST(
         }
 
         // Vérifier que l'utilisateur est participant
-        const isParticipant = await  query(
+        const isParticipant = await query(
             `SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2 AND left_at IS NULL`,
             [conversationId, user_id]
         );
@@ -127,7 +127,7 @@ export async function POST(
         const message = result.rows[0];
 
         // Marquer comme lu par l'expéditeur
-        await  query(
+        await query(
             `INSERT INTO message_read_status (message_id, user_id) VALUES ($1, $2)`,
             [message.id, user_id]
         );

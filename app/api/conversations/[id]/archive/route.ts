@@ -9,12 +9,16 @@ import { query } from "@/lib/db";
  *     summary: Archiver ou désarchiver une conversation
  *     tags: [Messagerie]
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+type Params = {
+    params: Promise<{ id: string }>;
+};
+
+export async function PATCH(req: NextRequest, context: Params) {
     try {
         const user = await getUserFromRequest(req);
         if (!user) return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
 
-        const { id } = params;
+        const { id } = await context.params;
         const { archived = true } = await req.json();
 
         await query("UPDATE conversations SET is_archived = $1 WHERE id = $2", [archived, id]);

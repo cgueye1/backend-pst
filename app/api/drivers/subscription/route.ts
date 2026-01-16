@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import axios from "axios";
 import { getUserFromRequest } from "@/lib/auth";
+import { getPaymentMethodToStore } from "@/lib/payments/utils";
 /**
  * @swagger
  * /api/drivers/subscription:
@@ -36,24 +37,29 @@ export async function POST(request: NextRequest) {
 
         const transactionId = `TRX-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-        // 4. Enregistrement du paiement en base (Statut: pending)
+        // 4. Déterminer la méthode de paiement réelle à enregistrer
+        // Si mobile_money, utiliser le provider (Wave, Orange Money, etc.)
+        // Si card, utiliser "Carte Bancaire"
+        const methodToStore = getPaymentMethodToStore(payment_method, mobile_provider);
+
+        // 5. Enregistrement du paiement en base (Statut: pending)
         const paymentInsert = await query(
-            `INSERT INTO payments (user_id, amount, status, method, payment_type, transaction_id, payment_provider, mobile_number) 
+            `INSERT INTO payments (user_id, amount, status, method, payment_type, transaction_id, payment_provider, mobile_number)
              VALUES ($1, $2, 'pending', $3, 'subscription', $4, $5, $6) RETURNING id`,
-            [user.id, plan.price, payment_method, transactionId, mobile_provider || 'CARD', mobile_number || null]
+            [user.id, plan.price, methodToStore, transactionId, 'PayTech', mobile_number || null]
         );
         const paymentId = paymentInsert.rows[0].id;
 
-        // 5. Création de la souscription (active: false)
+        // 6. Création de la souscription (active: false)
         await query(
-            `INSERT INTO subscriptions (user_id, plan_id, type, price, start_date, end_date, active, payment_id) 
+            `INSERT INTO subscriptions (user_id, plan_id, type, price, start_date, end_date, active, payment_id)
              VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_DATE + ($5::integer * INTERVAL '1 day'), false, $6)`,
             [user.id, plan_id, plan.name, plan.price, plan.duration_days, paymentId]
         );
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-        // 6. Configuration du Payload PayTech pour éviter la page de sélection
+        // 7. Configuration du Payload PayTech pour éviter la page de sélection
         const paytechPayload: any = {
             item_name: `Abonnement ${plan.name}`,
             item_price: Number(plan.price),
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest) {
             paytechPayload.payment_method = 'card';
         }
 
-        // 7. Appel à PayTech
+        // 8. Appel à PayTech
         const response = await axios.post(
             "https://paytech.sn/api/payment/request-payment",
             paytechPayload,

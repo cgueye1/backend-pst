@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import axios from "axios";
 import { getUserFromRequest } from "@/lib/auth";
+import { getPaymentMethodToStore } from "@/lib/payments/utils";
 
 export async function POST(req: NextRequest) {
     try {
@@ -29,21 +30,26 @@ export async function POST(req: NextRequest) {
         const trip = tripRes.rows[0];
         const transactionId = `TRIP-${Date.now()}`;
 
-        //  Créer paiement
+        // Déterminer la méthode de paiement réelle à enregistrer
+        // Si mobile_money, utiliser le provider (Wave, Orange Money, etc.)
+        // Si card, utiliser "Carte Bancaire"
+        const methodToStore = getPaymentMethodToStore(payment_method, mobile_provider);
+
+        // Créer paiement
         const payment = await query(
             `
-            INSERT INTO payments (
-                user_id, amount, status, method, payment_type,
-                payment_provider, transaction_id, mobile_number, trip_id
-            )
-            VALUES ($1, $2, 'pending', $3, 'trip', $4, $5, $6, $7)
-            RETURNING id
+                INSERT INTO payments (
+                    user_id, amount, status, method, payment_type,
+                    payment_provider, transaction_id, mobile_number, trip_id
+                )
+                VALUES ($1, $2, 'pending', $3, 'trip', $4, $5, $6, $7)
+                    RETURNING id
             `,
             [
                 user.id,
                 trip.price,
-                payment_method,
-                mobile_provider || 'CARD',
+                methodToStore,
+                'PayTech',
                 transactionId,
                 mobile_number || null,
                 trip_id

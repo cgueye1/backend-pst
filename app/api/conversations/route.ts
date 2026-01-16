@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
-import {emitToUser} from "@/lib/emitters";
+import { emitToUser } from "@/lib/emitters";
 
 /**
  * @swagger
@@ -11,18 +11,18 @@ import {emitToUser} from "@/lib/emitters";
  *     tags: [Messagerie]
  */
 export async function GET(req: NextRequest) {
-    try {
-        const user = await getUserFromRequest(req);
-        if (!user) {
-            return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
-        }
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
+    }
 
-        const user_id = user.user_id || user.id;
+    const user_id = user.id;
 
-        const url = new URL(req.url);
-        const archived = url.searchParams.get("archived") === "true";
+    const url = new URL(req.url);
+    const archived = url.searchParams.get("archived") === "true";
 
-        const result = await query (`
+    const result = await query(`
       SELECT 
         c.id,
         c.type,
@@ -84,19 +84,19 @@ export async function GET(req: NextRequest) {
         AND cp.left_at IS NULL
         AND c.is_archived = $2
       ORDER BY c.last_message_at DESC NULLS LAST
-    `,[user_id, archived]
-        );
+    `, [user_id, archived]
+    );
 
 
-        return NextResponse.json({
-            success: true,
-            data: result.rows,
-            total_unread: result.rows.reduce((sum, conv) => sum + conv.unread_count, 0)
-        });
-    } catch (error) {
-        console.error("Error fetching conversations:", error);
-        return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
-    }
+    return NextResponse.json({
+      success: true,
+      data: result.rows,
+      total_unread: result.rows.reduce((sum, conv) => sum + conv.unread_count, 0)
+    });
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
+  }
 }
 
 /**
@@ -107,31 +107,31 @@ export async function GET(req: NextRequest) {
  *     tags: [Messagerie]
  */
 export async function POST(req: NextRequest) {
-    try {
-        const user = await getUserFromRequest(req);
-        if (!user) {
-            return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
-        }
-        const currentUserId = user.user_id || user.id;
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 401 });
+    }
+    const currentUserId = user.id;
 
-        const body = await req.json();
-        const { other_user_id } = body;
+    const body = await req.json();
+    const { other_user_id } = body;
 
-        if (!other_user_id) {
-            return NextResponse.json({ success: false, message: "other_user_id requis" }, { status: 400 });
-        }
+    if (!other_user_id) {
+      return NextResponse.json({ success: false, message: "other_user_id requis" }, { status: 400 });
+    }
 
-        // Créer ou récupérer la conversation directe
-        const result = await query(
-            "SELECT get_or_create_direct_conversation($1, $2) AS conversation_id",
-            [currentUserId, other_user_id]
-        );
+    // Créer ou récupérer la conversation directe
+    const result = await query(
+      "SELECT get_or_create_direct_conversation($1, $2) AS conversation_id",
+      [currentUserId, other_user_id]
+    );
 
-        const conversationId = result.rows[0].conversation_id;
+    const conversationId = result.rows[0].conversation_id;
 
-        // Récupérer les détails
-        const convDetails = await  query(
-            `
+    // Récupérer les détails
+    const convDetails = await query(
+      `
       SELECT 
         c.*,
         u.name AS other_participant_name,
@@ -141,19 +141,19 @@ export async function POST(req: NextRequest) {
       JOIN users u ON cp.user_id = u.id
       WHERE c.id = $1 AND cp.user_id = $2
       `,
-            [conversationId, other_user_id]
-        );
+      [conversationId, other_user_id]
+    );
 
-        const conversationData = { id: conversationId, ...convDetails.rows[0] };
+    const conversationData = { id: conversationId, ...convDetails.rows[0] };
 
-        // Émettre l'événement en temps réel
-        emitToUser(other_user_id, "new_conversation", conversationData);
+    // Émettre l'événement en temps réel
+    emitToUser(other_user_id, "new_conversation", conversationData);
 
-        return NextResponse.json({ success: true, data: conversationData });
-    } catch (error) {
-        console.error("Error creating conversation:", error);
-        return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
-    }
+    return NextResponse.json({ success: true, data: conversationData });
+  } catch (error) {
+    console.error("Error creating conversation:", error);
+    return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
+  }
 }
 
 

@@ -13,9 +13,13 @@ import { query } from "@/lib/db";
  *       - bearerAuth: []
  */
 
+type Params = {
+    params: Promise<{ childId: string }>;
+};
+
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { childId: string } }
+    context: Params
 ) {
     try {
         const user = await getUserFromRequest(req);
@@ -27,7 +31,8 @@ export async function PUT(
             );
         }
 
-        const childId = Number(params.childId);
+        const { childId: childIdStr } = await context.params;
+        const childId = Number(childIdStr);
         const { school_id, address } = await req.json();
 
         if (!school_id || !address) {

@@ -26,7 +26,7 @@ export async function DELETE(
         }
 
         const { tripId, childId } = await params;
-        const user_id = user.user_id;
+        const user_id = user.id;
 
         /* 1️⃣ Vérifier que l’enfant appartient au parent */
         const childCheck = await query(
@@ -55,6 +55,17 @@ export async function DELETE(
         }
 
         const trip = tripCheck.rows[0];
+
+        // Vérifier que le trajet n'est pas dans le passé
+        if (new Date(trip.departure_time) < new Date()) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Impossible d'annuler un trajet déjà passé",
+                },
+                { status: 400 }
+            );
+        }
 
         if (trip.status === "in_progress" || trip.status === "completed") {
             return NextResponse.json(

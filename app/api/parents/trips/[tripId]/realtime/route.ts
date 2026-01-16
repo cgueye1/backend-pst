@@ -20,13 +20,8 @@ export async function GET(
                 { status: 401 }
             );
         }
-        console.log("USER OBJECT:", user);
-
-
         const { tripId } = await params;
         const user_id = user.id;
-        console.log("USER ID:", user.user_id);
-        console.log("TRIP ID:", tripId);
 
         // Vérifier que le parent a un enfant dans ce trajet
         const verification = await query(

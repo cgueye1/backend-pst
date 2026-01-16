@@ -161,7 +161,7 @@ export async function PUT(req: NextRequest, context: Params) {
 
         const queryText = `
             UPDATE schools 
-            SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+            SET ${updates.join(', ')} 
             WHERE id=$${paramIndex}
             RETURNING *
         `;
@@ -183,7 +183,7 @@ export async function PUT(req: NextRequest, context: Params) {
 
                 const fallbackQuery = `
                     UPDATE schools 
-                    SET ${fallbackUpdates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+                    SET ${fallbackUpdates.join(', ')} 
                     WHERE id=$${fallbackParams.length}
                     RETURNING *
                 `;

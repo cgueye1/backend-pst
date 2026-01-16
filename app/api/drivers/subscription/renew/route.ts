@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
+import { getPaymentMethodToStore, normalizeMobileProvider } from "@/lib/payments/utils";
 
 /**
  * @swagger
@@ -47,10 +48,10 @@ export async function POST(request: NextRequest) {
         // Récupérer l'abonnement actuel
         const currentSubResult = await query(
             `
-            SELECT s.*, sp.name as plan_name, sp.price, sp.duration_days
-            FROM subscriptions s
-            LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.id = $1 AND s.user_id = $2
+                SELECT s.*, sp.name as plan_name, sp.price, sp.duration_days
+                FROM subscriptions s
+                         LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+                WHERE s.id = $1 AND s.user_id = $2
             `,
             [subscription_id, user.id]
         );
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 amount: currentSub.price,
                 status: 'pending',
-                method: payment_method || 'card',
+                method: 'Carte Bancaire', // Valeur par défaut, sera écrasée selon la méthode choisie
                 payment_type: 'subscription_renewal',
                 transaction_id: `RNW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             };
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
                 if (savedMethod.method_type === 'card') {
                     paymentData = {
                         ...paymentData,
-                        method: 'card',
+                        method: 'Carte Bancaire',
                         card_holder_name: savedMethod.card_holder_name,
                         card_last4: savedMethod.card_last4,
                         card_exp_month: savedMethod.card_exp_month,
@@ -101,11 +102,13 @@ export async function POST(request: NextRequest) {
                         payment_provider: 'PayTech'
                     };
                 } else if (savedMethod.method_type === 'mobile_money') {
+                    // Normaliser le provider mobile money
+                    const normalizedProvider = normalizeMobileProvider(savedMethod.mobile_provider);
                     paymentData = {
                         ...paymentData,
-                        method: savedMethod.mobile_provider,
+                        method: normalizedProvider,
                         mobile_number: savedMethod.mobile_number,
-                        payment_provider: savedMethod.mobile_provider
+                        payment_provider: 'PayTech'
                     };
                 }
             }
@@ -121,6 +124,7 @@ export async function POST(request: NextRequest) {
 
                     paymentData = {
                         ...paymentData,
+                        method: 'Carte Bancaire',
                         card_holder_name,
                         card_last4,
                         card_exp_month,
@@ -133,11 +137,20 @@ export async function POST(request: NextRequest) {
                         throw new Error("Informations de mobile money incomplètes");
                     }
 
+                    // Normaliser le provider mobile money
+                    const normalizedProvider = getPaymentMethodToStore(payment_method, mobile_provider);
                     paymentData = {
                         ...paymentData,
-                        method: mobile_provider,
+                        method: normalizedProvider,
                         mobile_number,
-                        payment_provider: mobile_provider
+                        payment_provider: 'PayTech'
+                    };
+                } else if (payment_method === 'card') {
+                    // Normaliser pour carte bancaire
+                    paymentData = {
+                        ...paymentData,
+                        method: 'Carte Bancaire',
+                        payment_provider: 'PayTech'
                     };
                 }
             }
