@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: transport-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: passer
+      POSTGRES_DB: PST_DB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./sql/systemeSMS.sql:/docker-entrypoint-initdb.d/02-systemeSMS.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transport-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:passer@postgres:5432/PST_DB
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+      ALLOWED_ORIGINS: "*"
+      JWT_SECRET: "your_jwt_secret_here"
+      JWT_EXPIRES_IN: "1d"
+
+      # URLs - IMPORTANT: Pour Docker local, utiliser localhost
+      NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+
+      # PayTech
+      PAYTECH_API_KEY: "your_paytech_api_key_here"
+      PAYTECH_API_SECRET: "your_paytech_api_secret_here"
+      PAYTECH_ENV: "test"
+
+      # Twilio (SMS)
+      TWILIO_ACCOUNT_SID: "your_twilio_account_sid_here"
+      TWILIO_AUTH_TOKEN: "your_twilio_auth_token_here"
+      TWILIO_PHONE: "your_twilio_phone_number_here"
+
+      # Google Maps
+      GOOGLE_MAPS_API_KEY: "your_google_maps_api_key_here"
+
+      # Cron
+      CRON_SECRET: "your_cron_secret_here"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./public/uploads:/app/public/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+volumes:
+  postgres_data:
+
+networks:
+  backend-network:
+    driver: bridge
+
