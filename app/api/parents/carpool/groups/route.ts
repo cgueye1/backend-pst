@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/parents/carpool/groups:
  *   get:
@@ -25,29 +25,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST - Créer un groupe
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé. Seuls les parents peuvent créer des groupes.' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { name, description, school_id } = body;
 
         if (!name) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Le nom du groupe est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (school_id) {
@@ -57,10 +65,11 @@ export async function POST(req: NextRequest) {
             );
 
             if (schoolCheck.rowCount === 0) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: 'École introuvable' },
                     { status: 404 }
                 );
+                return setCorsHeaders(response, origin);
             }
         }
 
@@ -100,7 +109,7 @@ export async function POST(req: NextRequest) {
             [newGroup.id]
         );
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             {
                 success: true,
                 message: 'Groupe de covoiturage créé avec succès',
@@ -108,10 +117,11 @@ export async function POST(req: NextRequest) {
             },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('  Erreur création groupe:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -119,20 +129,50 @@ export async function POST(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // GET - Récupérer les groupes
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
+
+        // Convertir user.id en nombre pour éviter les problèmes de type
+        const userId = Number(user.id);
+
+        // Debug: logger l'ID de l'utilisateur
+        console.log('🔍 User ID original:', user.id, 'Type:', typeof user.id);
+        console.log('🔍 User ID converti:', userId, 'Type:', typeof userId);
+
+        // Vérifier d'abord si des groupes existent
+        const allGroupsCheck = await query(
+            `SELECT COUNT(*) as total FROM carpool_groups`
+        );
+        console.log('📊 Total groupes dans la base:', allGroupsCheck.rows[0]?.total);
+
+        // Vérifier les groupes où l'utilisateur est créateur
+        const creatorCheck = await query(
+            `SELECT COUNT(*) as total FROM carpool_groups WHERE creator_id = $1`,
+            [userId]
+        );
+        console.log('👤 Groupes créés par user:', creatorCheck.rows[0]?.total);
+
+        // Vérifier les membres
+        const memberCheck = await query(
+            `SELECT COUNT(*) as total FROM carpool_group_members WHERE parent_id = $1`,
+            [userId]
+        );
+        console.log('👥 Membres pour user:', memberCheck.rows[0]?.total);
 
         const result = await query(
             `
@@ -148,7 +188,7 @@ export async function GET(req: NextRequest) {
                 s.name as school_name,
                 u.name as creator_name,
                 
-                m.status as membership_status,
+                COALESCE(m.status, CASE WHEN g.creator_id = $1 THEN 'accepted' ELSE NULL END) as membership_status,
                 m.invited_at,
                 
                 (SELECT COUNT(*) FROM carpool_group_members WHERE group_id = g.id AND status = 'accepted') as members_count,
@@ -156,24 +196,27 @@ export async function GET(req: NextRequest) {
                 (g.creator_id = $1) as is_creator
                 
             FROM carpool_groups g
-            INNER JOIN carpool_group_members m ON g.id = m.group_id
+            LEFT JOIN carpool_group_members m ON g.id = m.group_id AND m.parent_id = $1
             LEFT JOIN schools s ON g.school_id = s.id
             LEFT JOIN users u ON g.creator_id = u.id
-            WHERE m.parent_id = $1
+            WHERE (m.parent_id = $1 OR g.creator_id = $1)
             ORDER BY g.created_at DESC
             `,
-            [user.id]
+            [userId]
         );
 
-        return NextResponse.json({
+        console.log('✅ Résultat requête:', result.rows.length, 'groupes trouvés');
+
+        const response = NextResponse.json({
             success: true,
             data: result.rows,
             count: result.rows.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération groupes:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -181,29 +224,33 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // PUT - Modifier un groupe
 export async function PUT(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { group_id, name, description, status } = body;
 
         if (!group_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const ownerCheck = await query(
@@ -212,10 +259,11 @@ export async function PUT(req: NextRequest) {
         );
 
         if (ownerCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Seul le créateur peut modifier le groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const updateFields = [];
@@ -236,10 +284,11 @@ export async function PUT(req: NextRequest) {
         }
 
         if (updateFields.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Aucune modification fournie' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         updateFields.push(`updated_at = NOW()`);
@@ -263,15 +312,16 @@ export async function PUT(req: NextRequest) {
             [group_id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Groupe mis à jour avec succès',
             data: updated.rows[0]
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur modification groupe:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -279,29 +329,33 @@ export async function PUT(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // DELETE - Supprimer un groupe
 export async function DELETE(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { searchParams } = new URL(req.url);
         const group_id = searchParams.get('group_id');
 
         if (!group_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const ownerCheck = await query(
@@ -310,10 +364,11 @@ export async function DELETE(req: NextRequest) {
         );
 
         if (ownerCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Seul le créateur peut supprimer le groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const groupName = ownerCheck.rows[0].name;
@@ -323,14 +378,15 @@ export async function DELETE(req: NextRequest) {
             [group_id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: `Groupe "${groupName}" supprimé avec succès`
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur suppression groupe:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -338,5 +394,6 @@ export async function DELETE(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

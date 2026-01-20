@@ -1,6 +1,7 @@
 import {NextRequest, NextResponse} from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
 import {query} from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 /**
  * @swagger
@@ -9,25 +10,32 @@ import {query} from "@/lib/db";
  *     summary: Résilier l'abonnement
  *     tags: [CHAUFFEUR]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function DELETE(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await request.json();
         const { subscription_id, reason, cancel_immediately = false } = body;
 
         if (!subscription_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "ID d'abonnement requis" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer l'abonnement
@@ -42,10 +50,11 @@ export async function DELETE(request: NextRequest) {
         );
 
         if (subResult.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Abonnement actif introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const subscription = subResult.rows[0];
@@ -109,7 +118,7 @@ export async function DELETE(request: NextRequest) {
                 [notifResult.rows[0].id, user.id]
             );
 
-            return NextResponse.json({
+            const response = NextResponse.json({
                 success: true,
                 message: cancel_immediately
                     ? "Abonnement résilié immédiatement"
@@ -120,6 +129,7 @@ export async function DELETE(request: NextRequest) {
                     active_until: cancel_immediately ? new Date() : subscription.end_date
                 }
             });
+            return setCorsHeaders(response, origin);
 
         } catch (error) {
             await query('ROLLBACK');
@@ -128,9 +138,10 @@ export async function DELETE(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Erreur résiliation abonnement:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

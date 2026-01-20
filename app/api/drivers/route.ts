@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/drivers:
  *   get:
@@ -11,24 +11,35 @@
  *     tags: [ADMIN]
 
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAllDrivers, createDriver } from "@/services/driverServices";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const drivers = await getAllDrivers();
-        return NextResponse.json(drivers);
+        const response = NextResponse.json(drivers);
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const data = await req.json();
         const driver = await createDriver(data);
-        return NextResponse.json(driver, { status: 201 });
+        const response = NextResponse.json(driver, { status: 201 });
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

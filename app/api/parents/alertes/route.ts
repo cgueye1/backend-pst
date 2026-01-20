@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/alertes:
@@ -8,17 +9,23 @@ import { query } from "@/lib/db";
  *     summary: Envoyer des rappels avant chaque trajet prévu
  *     tags: [CRON]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         // Sécurité : Vérifier que la requête vient d'un cron autorisé
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET || 'your-secret-key';
 
         if (authHeader !== `Bearer ${cronSecret}`) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         console.log(' Cron job - Vérification des trajets à rappeler...');
@@ -77,18 +84,20 @@ export async function GET(request: NextRequest) {
             console.log(` Rappel créé pour ${trip.name} (trip_id=${trip.trip_id})`);
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "Rappels des trajets créés avec succès",
             count: remindersResult.rowCount
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur cron trip reminders:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 

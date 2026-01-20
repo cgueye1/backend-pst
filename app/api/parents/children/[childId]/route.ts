@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 import { z } from 'zod';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,27 +35,8 @@ type Params = {
     params: Promise<{ childId: string }>;
 };
 
-// Helper CORS
-function setCorsHeaders(response: NextResponse, origin: string | null) {
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
-        : ['http://localhost:4200', 'http://localhost:3000', 'http://localhost:4201'];
-    
-    if (origin && allowedOrigins.includes(origin)) {
-        response.headers.set('Access-Control-Allow-Origin', origin);
-    } else if (process.env.NODE_ENV === 'development') {
-        response.headers.set('Access-Control-Allow-Origin', origin || '*');
-    }
-    
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-    return response;
-}
-
 export async function OPTIONS(req: NextRequest) {
-    const origin = req.headers.get('origin');
-    return setCorsHeaders(new NextResponse(null, { status: 204 }), origin);
+    return corsOptions(req);
 }
 
 export async function GET(req: NextRequest, context: Params) {

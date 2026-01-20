@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 /**
  * @swagger
@@ -17,18 +18,24 @@ type Params = {
     params: Promise<{ childId: string }>;
 };
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function PUT(
     req: NextRequest,
     context: Params
 ) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== "parent") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Non autorisé" },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { childId: childIdStr } = await context.params;
@@ -36,36 +43,39 @@ export async function PUT(
         const { school_id, address } = await req.json();
 
         if (!school_id || !address) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "school_id et address sont requis" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
-        // Vérifier que l’enfant appartient au parent
+        // Vérifier que l'enfant appartient au parent
         const childCheck = await query(
             `SELECT * FROM children WHERE id = $1 AND parent_id = $2`,
             [childId, user.id]
         );
 
         if (childCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Enfant introuvable ou non autorisé" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
-        // Vérifier que l’école existe
+        // Vérifier que l'école existe
         const schoolCheck = await query(
             `SELECT id FROM schools WHERE id = $1`,
             [school_id]
         );
 
         if (schoolCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "École introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Mise à jour
@@ -80,15 +90,16 @@ export async function PUT(
             [school_id, address, childId]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "École et adresse associées avec succès",
             data: result.rows[0],
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("❌ Erreur association école/adresse :", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: "Erreur serveur",
@@ -96,5 +107,6 @@ export async function PUT(
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

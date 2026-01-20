@@ -10,33 +10,47 @@
  *     tags: [ADMIN]
 
  */
-import { NextResponse } from "next/server";
+ 
 import { createUser, getAllUsers } from "@/services/userServices";
 import { authMiddleware } from "@/lib/auth";
 
-export async function GET(req: Request) {
+import { NextRequest, NextResponse } from 'next/server';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = authMiddleware(req);
         if (user.role !== "admin") {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const res = await getAllUsers();
-        return NextResponse.json(res);
+        const response = NextResponse.json(res);
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         authMiddleware(req);
 
         const body = await req.json();
         const user = await createUser(body);
 
-        return NextResponse.json(user);
+        const response = NextResponse.json(user);
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

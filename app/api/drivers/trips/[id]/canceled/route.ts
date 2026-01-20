@@ -10,18 +10,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const origin = request.headers.get('origin');
     try {
         // Récupérer l'utilisateur connecté
         const user = await getUserFromRequest(request);
         console.log("User connecté:", user);
 
         if (!user || user.role !== 'driver') {
-            return NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
+            const response = NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer le driver et vérifier le statut
@@ -33,18 +40,20 @@ export async function PUT(
         console.log("Driver récupéré:", driverResult.rows[0]);
 
         if (driverResult.rowCount === 0) {
-            return NextResponse.json({ error: 'Chauffeur introuvable' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Chauffeur introuvable' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const driver = driverResult.rows[0];
         if (driver.status !== 'Approuvé') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     error: 'Votre compte chauffeur est en attente d\'approbation',
                     status: driver.status
                 },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const driverId = driver.id;
@@ -67,13 +76,14 @@ export async function PUT(
         console.log("Résultat UPDATE:", result.rows);
 
         if (result.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
                     message: "Trajet introuvable ou déjà annule"
                 },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         //     Récupérer les parents (utilisez tripId, pas id)
@@ -133,15 +143,16 @@ export async function PUT(
             );
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "Trajet annulé avec succès",
             data: result.rows[0],
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur fin trajet:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 message: error.message,
@@ -149,5 +160,6 @@ export async function PUT(
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

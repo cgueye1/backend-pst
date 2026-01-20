@@ -17,6 +17,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 type Params = {
     params: Promise<{ id: string }>;
@@ -25,12 +30,14 @@ type Params = {
 // GET: Récupérer un trajet par ID
 // GET: Récupérer un trajet par ID avec info chauffeur
 export async function GET(req: NextRequest, context: Params) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = Number(id);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            const response = NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         // Requête SQL avec jointure sur driver et user
@@ -51,7 +58,8 @@ export async function GET(req: NextRequest, context: Params) {
         );
 
         if (res.rowCount === 0) {
-            return NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         // Transformer le résultat pour inclure un objet chauffeur plus clair
@@ -68,20 +76,24 @@ export async function GET(req: NextRequest, context: Params) {
                 : null, // null si pas de chauffeur
         };
 
-        return NextResponse.json(result);
+        const response = NextResponse.json(result);
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('GET trip error:', error);
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 // PUT: Mettre à jour un trajet complet
 export async function PUT(req: NextRequest, context: Params) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = Number(id);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            const response = NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
@@ -98,17 +110,17 @@ export async function PUT(req: NextRequest, context: Params) {
 
         // Validation des champs requis
         if (!school_id || !start_point || !end_point || !departure_time) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Champs requis manquants (school_id, start_point, end_point, departure_time)' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const res = await query(
             `UPDATE trips
              SET driver_id=$1, school_id=$2, start_point=$3, end_point=$4,
-                 departure_time=$5, capacity_max=$6, status=$7, is_recurring=$8,
-                 updated_at=CURRENT_TIMESTAMP
+                 departure_time=$5, capacity_max=$6, status=$7, is_recurring=$8 
              WHERE id=$9
                  RETURNING *`,
             [
@@ -125,37 +137,43 @@ export async function PUT(req: NextRequest, context: Params) {
         );
 
         if (res.rowCount === 0) {
-            return NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json(res.rows[0]);
+        const response = NextResponse.json(res.rows[0]);
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
         console.error('PUT trip error:', error);
-        return NextResponse.json(
+        const response = NextResponse.json(
             { error: error.message || 'Erreur lors de la mise à jour' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }
 
 // PATCH: Affecter un chauffeur à un trajet
 export async function PATCH(req: NextRequest, context: Params) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const tripId = Number(id);
 
         if (isNaN(tripId)) {
-            return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            const response = NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { driver_id } = body;
 
         if (!driver_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'driver_id requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Récupération du trajet
@@ -167,23 +185,25 @@ export async function PATCH(req: NextRequest, context: Params) {
         );
 
         if (tripResult.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Trajet introuvable' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const trip = tripResult.rows[0];
 
         // Optionnel: Vérifier si un chauffeur est déjà affecté
         if (trip.driver_id && trip.driver_id !== driver_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     error: 'Un chauffeur est déjà affecté à ce trajet',
                     current_driver_id: trip.driver_id
                 },
                 { status: 409 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérification des conflits d'horaire pour le chauffeur
@@ -198,10 +218,11 @@ export async function PATCH(req: NextRequest, context: Params) {
         );
 
         if (conflictResult.rowCount && conflictResult.rowCount > 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Ce chauffeur a déjà un trajet similaire à cette heure' },
                 { status: 409 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Affectation du chauffeur
@@ -214,27 +235,31 @@ export async function PATCH(req: NextRequest, context: Params) {
             [driver_id, tripId]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             message: 'Chauffeur affecté avec succès',
             trip: updateResult.rows[0]
         });
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
         console.error('PATCH trip (assign driver) error:', error);
-        return NextResponse.json(
+        const response = NextResponse.json(
             { error: error.message || 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }
 
 // DELETE: Supprimer un trajet
 export async function DELETE(req: NextRequest, context: Params) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = Number(id);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            const response = NextResponse.json({ error: 'ID invalide' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier si le trajet existe avant suppression
@@ -244,31 +269,35 @@ export async function DELETE(req: NextRequest, context: Params) {
         );
 
         if (checkResult.rowCount === 0) {
-            return NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Trajet non trouvé' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const trip = checkResult.rows[0];
 
         // Optionnel: Empêcher la suppression de trajets en cours
         if (trip.status === 'En cours') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Impossible de supprimer un trajet en cours' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Suppression
         await query('DELETE FROM trips WHERE id=$1', [numericId]);
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Trajet supprimé avec succès'
         });
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
         console.error('DELETE trip error:', error);
-        return NextResponse.json(
+        const response = NextResponse.json(
             { error: error.message || 'Erreur lors de la suppression' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }

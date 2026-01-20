@@ -1,4 +1,4 @@
-import {NextRequest, NextResponse} from "next/server";
+﻿import {NextRequest, NextResponse} from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
 import {unlink, writeFile} from "fs/promises";
 import path, {join} from "path";
@@ -8,6 +8,7 @@ import {query} from "@/lib/db";
 // Créer le dossier si nécessaire
 import fs from "fs";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/account/photo:
@@ -18,42 +19,51 @@ import fs from "fs";
  *       summary: Supprimer la photo de profil
  *       tags: [Parents]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const formData = await request.formData();
         const file = formData.get('photo') as File;
 
         if (!file) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Aucun fichier fourni' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Validation du fichier
         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!validTypes.includes(file.type)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Type de fichier non autorisé. Utilisez JPG, PNG ou WEBP' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Limite de taille: 5MB
         if (file.size > 5 * 1024 * 1024) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Le fichier est trop volumineux (max 5MB)' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Générer un nom de fichier unique
@@ -93,33 +103,37 @@ export async function POST(request: NextRequest) {
             [photoUrl, user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Photo de profil mise à jour',
             data: {
                 photo_url: photoUrl
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur upload photo:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 
 export async function DELETE(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer l'URL de la photo actuelle
@@ -144,16 +158,18 @@ export async function DELETE(request: NextRequest) {
             [user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Photo de profil supprimée'
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur suppression photo:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

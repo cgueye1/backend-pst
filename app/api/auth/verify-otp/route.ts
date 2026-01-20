@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 /**
  * @swagger
@@ -11,7 +12,12 @@ import { query } from "@/lib/db";
 
  */
 
-export async function POST(req: Request) {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const { userId, code } = await req.json();
 
@@ -21,7 +27,8 @@ export async function POST(req: Request) {
         );
 
         if (res.rowCount === 0) {
-            return NextResponse.json({ error: "Code OTP invalide ou expiré" }, { status: 400 });
+            const response = NextResponse.json({ error: "Code OTP invalide ou expiré" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
 
@@ -29,9 +36,11 @@ export async function POST(req: Request) {
         const userRes = await query(`SELECT id, email FROM users WHERE id=$1`, [userId]);
         const user = userRes.rows[0];
 
-        return NextResponse.json({ message: "Code OTP vérifié", user, code });
+        const response = NextResponse.json({ message: "Code OTP vérifié", user, code });
+        return setCorsHeaders(response, origin);
     } catch (err: unknown) {
         const error = err instanceof Error ? err.message : "Unknown error";
-        return NextResponse.json({ error }, { status: 500 });
+        const response = NextResponse.json({ error }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

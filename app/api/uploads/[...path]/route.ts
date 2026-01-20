@@ -1,17 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function GET(
-    req: Request,
+    req: NextRequest,
     context: { params: Promise<{ path: string[] }> } | { params: { path: string[] } }
 ) {
+    const origin = req.headers.get('origin');
     try {
         // Gérer les params comme Promise ou objet direct (selon la version de Next.js)
-        const params = 'then' in context.params 
-            ? await context.params 
+        const params = 'then' in context.params
+            ? await context.params
             : context.params;
-        
+
         const filePath = params.path.join('/');
         // Dans Docker, utiliser directement /app/uploads
         // En local, utiliser process.cwd() + uploads
@@ -26,17 +32,19 @@ export async function GET(
         // Vérifier que le fichier existe et est dans le dossier uploads (sécurité)
         if (!fullPath.startsWith(uploadsBase)) {
             console.error('Access denied - path outside uploads:', fullPath);
-            return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+            const response = NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         if (!fs.existsSync(fullPath)) {
             console.error('File not found:', fullPath);
-            return NextResponse.json({ error: 'Fichier non trouvé', path: fullPath }, { status: 404 });
+            const response = NextResponse.json({ error: 'Fichier non trouvé', path: fullPath }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const fileBuffer = fs.readFileSync(fullPath);
         const ext = path.extname(fullPath).toLowerCase();
-        
+
         // Déterminer le type MIME
         const mimeTypes: { [key: string]: string } = {
             '.jpg': 'image/jpeg',
@@ -45,19 +53,27 @@ export async function GET(
             '.gif': 'image/gif',
             '.webp': 'image/webp',
             '.pdf': 'application/pdf',
+            '.mp4': 'video/mp4',
         };
 
         const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-        return new NextResponse(fileBuffer, {
+        // Extraire le nom du fichier pour le Content-Disposition
+        const fileName = path.basename(fullPath);
+
+        const response = new NextResponse(fileBuffer, {
             headers: {
                 'Content-Type': contentType,
+                'Content-Disposition': `attachment; filename="${fileName}"`,
                 'Cache-Control': 'public, max-age=31536000, immutable',
             },
         });
+
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
         console.error('Erreur lors du chargement du fichier:', error);
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 

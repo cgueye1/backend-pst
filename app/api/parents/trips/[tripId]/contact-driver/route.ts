@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 /**
  * @swagger
@@ -12,17 +13,23 @@ import { query } from "@/lib/db";
  *     security:
  *       - bearerAuth: []
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ tripId: string }> }
 ) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Non autorisé" },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { tripId } = await params;
@@ -41,10 +48,11 @@ export async function POST(
         );
 
         if (driverResult.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Chauffeur introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const driverUserId = driverResult.rows[0].driver_user_id;
@@ -64,18 +72,20 @@ export async function POST(
             );
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: {
                 conversation_id: conv.rows[0].conversation_id,
                 driver_user_id: driverUserId,
             },
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error("Erreur contact chauffeur:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: "Erreur serveur" },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

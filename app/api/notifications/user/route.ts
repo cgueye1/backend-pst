@@ -15,9 +15,14 @@
 
 
 
-import {getUserFromRequest} from "@/lib/auth";
-import {NextRequest, NextResponse} from "next/server";
-import {query} from "@/lib/db";
+import { getUserFromRequest } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -80,13 +85,17 @@ export async function GET(request: NextRequest) {
         const unreadParams = isAdmin ? [user.id] : [];
         const unreadResult = await query(unreadQuery, unreadParams);
 
-        return NextResponse.json({
+        const origin = request.headers.get('origin');
+        const response = NextResponse.json({
             notifications: notificationsResult.rows,
             unreadCount: Number(unreadResult.rows[0].unread),
             pagination: { page, limit }
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('Erreur notifications utilisateur:', error);
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        const origin = request.headers.get('origin');
+        const errorResponse = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        return setCorsHeaders(errorResponse, origin);
     }
 }

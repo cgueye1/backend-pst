@@ -1,21 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import axios from "axios";
 import { getUserFromRequest } from "@/lib/auth";
 import { getPaymentMethodToStore } from "@/lib/payments/utils";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== "parent") {
-            return NextResponse.json({ success: false }, { status: 403 });
+            const response = NextResponse.json({ success: false }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const { trip_id, payment_method, mobile_provider, mobile_number } = await req.json();
 
         if (!trip_id || !payment_method) {
-            return NextResponse.json({ success: false, message: "Données manquantes" }, { status: 400 });
+            const response = NextResponse.json({ success: false, message: "Données manquantes" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const tripRes = await query(
@@ -24,7 +32,8 @@ export async function POST(req: NextRequest) {
         );
 
         if (tripRes.rowCount === 0) {
-            return NextResponse.json({ success: false, message: "Trajet introuvable ou déjà payé" });
+            const response = NextResponse.json({ success: false, message: "Trajet introuvable ou déjà payé" });
+            return setCorsHeaders(response, origin);
         }
 
         const trip = tripRes.rows[0];
@@ -89,14 +98,16 @@ export async function POST(req: NextRequest) {
             }
         );
 
-        return NextResponse.json({
+        const successResponse = NextResponse.json({
             success: true,
             payment_url: response.data.redirect_url,
             transaction_id: transactionId
         });
+        return setCorsHeaders(successResponse, origin);
 
     } catch (e: any) {
         console.error(e);
-        return NextResponse.json({ success: false }, { status: 500 });
+        const errorResponse = NextResponse.json({ success: false }, { status: 500 });
+        return setCorsHeaders(errorResponse, origin);
     }
 }

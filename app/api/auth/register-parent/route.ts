@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/auth/register-parent:
  *   post:
@@ -7,9 +7,14 @@
 
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(req: Request) {
     try {

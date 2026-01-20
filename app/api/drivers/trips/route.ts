@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/trips:
@@ -12,11 +13,17 @@ import { getUserFromRequest } from "@/lib/auth";
  *     summary: Créer un nouveau trajet
  *     tags: [CHAUFFEUR]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user || user.role !== 'driver') {
-            return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+            const response = NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer le driver_id depuis la table drivers
@@ -26,7 +33,8 @@ export async function GET(request: NextRequest) {
         );
 
         if (driverResult.rowCount === 0) {
-            return NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+            const response = NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const driverId = driverResult.rows[0].id;
@@ -71,23 +79,27 @@ export async function GET(request: NextRequest) {
             [...params, limit, offset]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: trips.rows,
         });
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user || user.role !== 'driver') {
-            return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+            const response = NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer le driver_id depuis la table drivers
@@ -97,15 +109,17 @@ export async function POST(request: NextRequest) {
         );
 
         if (driverResult.rowCount === 0) {
-            return NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+            const response = NextResponse.json({ error: "Chauffeur introuvable" }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const driver = driverResult.rows[0];
         if (driver.status !== 'Approuvé') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: "Votre compte chauffeur est en attente d'approbation" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const driverId = driver.id;
@@ -114,38 +128,42 @@ export async function POST(request: NextRequest) {
         const { start_point, end_point, departure_time, capacity_max, school_id, is_recurring } = body;
 
         if (!start_point || !end_point || !departure_time || !capacity_max) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Champs obligatoires manquants" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier que la capacité du trajet ne dépasse pas celle du véhicule
         const capacityMaxNum = Number(capacity_max);
         if (isNaN(capacityMaxNum) || capacityMaxNum <= 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "La capacité doit être un nombre positif" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (capacityMaxNum > driver.capacity) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
                     message: `La capacité du trajet (${capacityMaxNum}) dépasse celle de votre véhicule (${driver.capacity})`
                 },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier que le trajet n'est pas dans le passé
         const departureDate = new Date(departure_time);
         if (departureDate < new Date()) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Impossible de créer un trajet dans le passé" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const result = await query(
@@ -157,14 +175,16 @@ export async function POST(request: NextRequest) {
             [driverId, school_id, start_point, end_point, departure_time, capacityMaxNum, is_recurring || false]
         );
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             { success: true, data: result.rows[0] },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
     } catch (error: any) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

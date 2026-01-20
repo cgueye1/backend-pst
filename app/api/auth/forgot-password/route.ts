@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import {createPasswordResetCode, sendCodeByEmail, sendCodeBySMS} from "@/services/userServices";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 /**
  * @swagger
@@ -12,7 +13,12 @@ import {createPasswordResetCode, sendCodeByEmail, sendCodeBySMS} from "@/service
 
  */
 
-export async function POST(req: Request) {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const { contact } = await req.json(); // phone ou email
 
@@ -23,7 +29,8 @@ export async function POST(req: Request) {
         const user = userRes.rows[0];
 
         if (!user) {
-            return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+            const response = NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
         const code = await createPasswordResetCode(user.id);
@@ -36,7 +43,7 @@ export async function POST(req: Request) {
         }
 
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             message: "Code de réinitialisation envoyé",
             user: {
                 id: user.id,
@@ -44,9 +51,11 @@ export async function POST(req: Request) {
                 phone: user.phone
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (err: unknown) {
         const error = err instanceof Error ? err.message : "Unknown error";
-        return NextResponse.json({ error }, { status: 500 });
+        const response = NextResponse.json({ error }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

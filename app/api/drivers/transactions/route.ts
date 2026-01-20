@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/transactions:
@@ -9,15 +10,21 @@ import { getUserFromRequest } from "@/lib/auth";
  *     summary: Historique des transactions du chauffeur
  *     tags: [CHAUFFEUR]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const res = await query(
@@ -42,21 +49,23 @@ export async function GET(request: NextRequest) {
             [user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             count: res.rowCount,
             transactions: res.rows
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur historique transactions:", error);
 
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 message: "Erreur lors de la récupération de l'historique"
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

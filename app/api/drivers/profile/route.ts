@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/drivers/profile:
  *   get:
@@ -15,12 +15,19 @@ import path from "path";
 import fs from "fs";
 
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const result = await query(
@@ -48,10 +55,11 @@ export async function GET(request: NextRequest) {
         );
 
         if (result.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: "Chauffeur introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const profile = result.rows[0];
@@ -61,7 +69,7 @@ export async function GET(request: NextRequest) {
         const first_name = nameParts.shift() || "";
         const last_name = nameParts.join(" ");
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: {
                 personal: {
@@ -93,13 +101,15 @@ export async function GET(request: NextRequest) {
                 }
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur récupération profil chauffeur:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
@@ -116,11 +126,13 @@ export async function GET(request: NextRequest) {
 
 
 export async function PUT(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
 
@@ -199,11 +211,12 @@ export async function PUT(request: NextRequest) {
 
             await query("COMMIT");
 
-            return NextResponse.json({
+            const successResponse = NextResponse.json({
                 success: true,
                 message: "Profil mis à jour avec succès",
                 photo_profil: photo_url
             });
+            return setCorsHeaders(successResponse, origin);
 
         } catch (err) {
             await query("ROLLBACK");
@@ -212,10 +225,11 @@ export async function PUT(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Erreur update profil chauffeur:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 

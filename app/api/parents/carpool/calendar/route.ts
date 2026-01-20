@@ -1,4 +1,4 @@
-
+﻿
 /**
  * @swagger
  * /api/parents/carpool/calendar:
@@ -23,21 +23,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST - Ajouter un trajet au calendrier
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const body = await req.json();
         const {
             group_id,
@@ -52,10 +60,11 @@ export async function POST(req: NextRequest) {
         } = body;
 
         if (!group_id || !date || !departure_time) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id, date et departure_time sont requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const memberCheck = await query(
@@ -63,14 +72,15 @@ export async function POST(req: NextRequest) {
             SELECT id FROM carpool_group_members 
             WHERE group_id = $1 AND parent_id = $2 AND status = 'accepted'
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
         if (memberCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Vous devez être membre du groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (driver_id) {
@@ -83,10 +93,11 @@ export async function POST(req: NextRequest) {
             );
 
             if (driverCheck.rowCount === 0) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: 'Le conducteur doit être membre du groupe' },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
         }
 
@@ -137,7 +148,7 @@ export async function POST(req: NextRequest) {
             [calendarEntry.rows[0].id]
         );
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             {
                 success: true,
                 message: 'Trajet ajouté au calendrier',
@@ -145,10 +156,11 @@ export async function POST(req: NextRequest) {
             },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur ajout calendrier:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -156,31 +168,36 @@ export async function POST(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // GET - Récupérer le calendrier du groupe
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const { searchParams } = new URL(req.url);
         const group_id = searchParams.get('group_id');
         const start_date = searchParams.get('start_date');
         const end_date = searchParams.get('end_date');
 
         if (!group_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const memberCheck = await query(
@@ -188,14 +205,15 @@ export async function GET(req: NextRequest) {
             SELECT id FROM carpool_group_members 
             WHERE group_id = $1 AND parent_id = $2 AND status = 'accepted'
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
-        if (memberCheck.rowCount === 0) {
-            return NextResponse.json(
+        if (Number(memberCheck.rowCount) === 0) {
+            const response = NextResponse.json(
                 { success: false, error: 'Vous devez être membre du groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const conditions = ['c.group_id = $1'];
@@ -241,18 +259,19 @@ export async function GET(req: NextRequest) {
             WHERE ${whereClause}
             ORDER BY c.date ASC, c.departure_time ASC
             `,
-            [...params, user.id]
+            [...params, userId]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows,
             count: result.rows.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération calendrier:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -260,21 +279,25 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // PUT - Modifier une entrée du calendrier
 export async function PUT(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const body = await req.json();
         const {
             calendar_id,
@@ -288,10 +311,11 @@ export async function PUT(req: NextRequest) {
         } = body;
 
         if (!calendar_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'calendar_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const entryCheck = await query(
@@ -305,10 +329,11 @@ export async function PUT(req: NextRequest) {
         );
 
         if (entryCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Entrée introuvable ou non autorisée' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const updateFields = [];
@@ -345,10 +370,11 @@ export async function PUT(req: NextRequest) {
         }
 
         if (updateFields.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Aucune modification fournie' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         updateFields.push(`updated_at = NOW()`);
@@ -371,15 +397,16 @@ export async function PUT(req: NextRequest) {
             [calendar_id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Calendrier mis à jour',
             data: updated.rows[0]
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur modification calendrier:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -387,29 +414,34 @@ export async function PUT(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // DELETE - Supprimer une entrée du calendrier
 export async function DELETE(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const { searchParams } = new URL(req.url);
         const calendar_id = searchParams.get('calendar_id');
 
         if (!calendar_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'calendar_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const entryCheck = await query(
@@ -423,10 +455,11 @@ export async function DELETE(req: NextRequest) {
         );
 
         if (entryCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Entrée introuvable ou non autorisée' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         await query(

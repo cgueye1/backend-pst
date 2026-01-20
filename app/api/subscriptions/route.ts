@@ -1,12 +1,20 @@
 import { query } from "@/lib/db";
-import { NextResponse } from "next/server";
 import { authMiddleware } from "@/lib/auth";
 
-export async function GET(req: Request) {
+import { NextRequest, NextResponse } from 'next/server';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = authMiddleware(req);
         if (user.role !== "admin") {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         // Requête corrigée selon votre vraie structure de table
@@ -15,7 +23,7 @@ export async function GET(req: Request) {
                 s.id,
                 u.name AS nom,
                 CASE 
-                    WHEN u.role = 'parent' THEN 'Parent'
+                    WHEN u.role = 'parent' THEN 'Parent' 
                     WHEN u.role = 'driver' THEN 'Chauffeur'
                     WHEN u.role = 'admin' THEN 'Administrateur'
                     ELSE 'Autre'
@@ -39,17 +47,19 @@ export async function GET(req: Request) {
             ORDER BY s.start_date DESC
         `);
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             rows: res.rows,
             total: res.rows.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (err) {
         console.error("Erreur API subscriptions:", err);
-        return NextResponse.json({
+        const response = NextResponse.json({
             error: "Erreur serveur",
             message: String(err)
         }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

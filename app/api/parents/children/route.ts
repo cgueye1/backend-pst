@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/parents/children:
  *   get:
@@ -24,27 +24,35 @@ import { query } from "@/lib/db";
 
 
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const children = Array.isArray(body) ? body : [body];
 
         if (children.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Aucun enfant fourni' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const createdChildren = [];
@@ -54,29 +62,31 @@ export async function POST(req: NextRequest) {
 
             //   Validation
             if (!name || !address || !school_id) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     {
                         success: false,
                         error: 'Les champs name, address et school_id sont obligatoires'
                     },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
-            //  Vérifier que l’école existe
+            //  Vérifier que l'école existe
             const schoolCheck = await query(
                 `SELECT id FROM schools WHERE id = $1 AND status = 'Actif'`,
                 [school_id]
             );
 
             if (schoolCheck.rowCount === 0) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     {
                         success: false,
                         error: `École invalide ou inactive (school_id=${school_id})`
                     },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             //   Insertion enfant
@@ -92,7 +102,7 @@ export async function POST(req: NextRequest) {
             createdChildren.push(result.rows[0]);
         }
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             {
                 success: true,
                 message: `${createdChildren.length} enfant(s) ajouté(s) avec succès`,
@@ -100,10 +110,11 @@ export async function POST(req: NextRequest) {
             },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur ajout enfants:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -111,19 +122,22 @@ export async function POST(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // GET - Récupérer les enfants du parent
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer tous les enfants du parent avec leurs infos complètes
@@ -136,52 +150,32 @@ export async function GET(req: NextRequest) {
                 c.school_id,
                 c.address,
                 c.created_at,
+                c.schedule,
                 
                 s.name as school_name,
                 s.address as school_address,
                 s.opening_time,
                 s.closing_time,
-                
-                COALESCE(
-                    json_agg(
-                        json_build_object(
-                            'id', cs.id,
-                            'day', cs.day_of_week,
-                            'arrival_time', cs.arrival_time::text,
-                            'departure_time', cs.departure_time::text
-                        ) ORDER BY 
-                            CASE cs.day_of_week
-                                WHEN 'monday' THEN 1
-                                WHEN 'tuesday' THEN 2
-                                WHEN 'wednesday' THEN 3
-                                WHEN 'thursday' THEN 4
-                                WHEN 'friday' THEN 5
-                                WHEN 'saturday' THEN 6
-                                WHEN 'sunday' THEN 7
-                            END
-                    ) FILTER (WHERE cs.id IS NOT NULL),
-                    '[]'::json
-                ) as schedules
+                s.schedule as school_schedule
                 
             FROM children c
             LEFT JOIN schools s ON c.school_id = s.id
-            LEFT JOIN child_schedules cs ON c.id = cs.child_id
             WHERE c.parent_id = $1
-            GROUP BY c.id, s.id
             ORDER BY c.created_at DESC
             `,
             [user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows,
             count: result.rows.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération enfants:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -189,6 +183,7 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 

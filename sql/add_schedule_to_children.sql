@@ -25,3 +25,7 @@ WHERE schedule IS NULL;
 
 -- Commentaire sur la colonne
 COMMENT ON COLUMN children.schedule IS 'Horaires personnalisés par jour pour l''enfant (peut différer de l''école)';
+
+
+
+

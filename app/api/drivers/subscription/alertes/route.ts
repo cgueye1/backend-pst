@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/subscription/alertes:
@@ -8,6 +9,10 @@ import { query } from "@/lib/db";
  *     summary: Envoyer des alertes d'expiration d'abonnements
  *     tags: [CRON]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
     try {
         // Sécurité : Vérifier que la requête vient d'un cron autorisé

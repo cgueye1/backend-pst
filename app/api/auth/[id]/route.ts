@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserById, updateUser } from "@/services/userServices";
 import { verifyToken } from "@/lib/auth";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 type Params = {
     params: Promise<{ id: string }>;
 };
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function PUT(req: NextRequest, context: Params) {
+    const origin = req.headers.get('origin');
     try {
         // Simplification : déstructuration directe
         const { id } = await context.params;
@@ -14,16 +20,18 @@ export async function PUT(req: NextRequest, context: Params) {
 
         // Validation de l'ID
         if (isNaN(userId)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { message: "ID utilisateur invalide" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérification du token
         const auth = req.headers.get("authorization");
         if (!auth) {
-            return NextResponse.json({ message: "No token" }, { status: 401 });
+            const response = NextResponse.json({ message: "No token" }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         verifyToken(auth.split(" ")[1]);
@@ -35,10 +43,11 @@ export async function PUT(req: NextRequest, context: Params) {
         // Vérification de l'existence de l'utilisateur
         const user = await getUserById(userId);
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { message: "Utilisateur introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Mise à jour
@@ -47,7 +56,7 @@ export async function PUT(req: NextRequest, context: Params) {
         // Séparation du nom
         const [firstName, ...rest] = (updatedUser.name ?? '').split(' ');
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             id: updatedUser.id,
             firstName,
             lastName: rest.join(' '),
@@ -56,9 +65,11 @@ export async function PUT(req: NextRequest, context: Params) {
             role: updatedUser.role,
             status: updatedUser.status,
         });
+        return setCorsHeaders(response, origin);
 
     } catch (err) {
         console.error("API ERROR", err);
-        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+        const response = NextResponse.json({ error: "Update failed" }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

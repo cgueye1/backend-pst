@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/reservations:
@@ -13,20 +14,27 @@ import { query } from "@/lib/db";
  *       - bearerAuth: []
 
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user || user.role !== "parent") {
-            return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+            const response = NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         const { trip_id, child_ids, is_recurring } = await request.json();
 
         if (!trip_id || !Array.isArray(child_ids) || child_ids.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "trip_id et child_ids requis" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier que les enfants appartiennent au parent
@@ -36,10 +44,11 @@ export async function POST(request: NextRequest) {
         );
 
         if (childrenCheck.rows.length !== child_ids.length) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Un ou plusieurs enfants ne vous appartiennent pas" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Démarrer une transaction pour éviter les race conditions
@@ -66,10 +75,11 @@ export async function POST(request: NextRequest) {
 
             if (tripCheck.rows.length === 0) {
                 await query('ROLLBACK');
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: "Trajet introuvable" },
                     { status: 404 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             const trip = tripCheck.rows[0];
@@ -77,19 +87,21 @@ export async function POST(request: NextRequest) {
             // Vérifier que le trajet est disponible
             if (trip.status !== 'pending') {
                 await query('ROLLBACK');
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: "Trajet indisponible (déjà commencé ou terminé)" },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             // Vérifier que le trajet n'est pas dans le passé
             if (new Date(trip.departure_time) < new Date()) {
                 await query('ROLLBACK');
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: "Impossible de réserver un trajet dans le passé" },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             // Vérifier les doubles réservations
@@ -101,7 +113,7 @@ export async function POST(request: NextRequest) {
             if (existingReservations.rows.length > 0) {
                 await query('ROLLBACK');
                 const duplicateChildren = existingReservations.rows.map(r => r.child_id);
-                return NextResponse.json(
+                const response = NextResponse.json(
                     {
                         success: false,
                         error: "Un ou plusieurs enfants sont déjà réservés sur ce trajet",
@@ -109,6 +121,7 @@ export async function POST(request: NextRequest) {
                     },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             // Re-vérifier la capacité (après verrouillage)
@@ -116,10 +129,11 @@ export async function POST(request: NextRequest) {
 
             if (availableSeats < child_ids.length) {
                 await query('ROLLBACK');
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: "Pas assez de places disponibles" },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             // Insertion réservations
@@ -136,7 +150,7 @@ export async function POST(request: NextRequest) {
             throw error;
         }
 
-        return NextResponse.json({
+        const successResponse = NextResponse.json({
             success: true,
             message: "Réservation effectuée avec succès",
             data: {
@@ -145,13 +159,15 @@ export async function POST(request: NextRequest) {
                 is_recurring: !!is_recurring
             }
         });
+        return setCorsHeaders(successResponse, origin);
 
     } catch (error) {
         console.error("Erreur réservation:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: "Erreur serveur" },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
@@ -165,10 +181,12 @@ export async function POST(request: NextRequest) {
  *       - bearerAuth: []
    */
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user || user.role !== "parent") {
-            return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+            const response = NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         const { searchParams } = new URL(request.url);
@@ -212,7 +230,7 @@ export async function GET(request: NextRequest) {
             `,
             [...params, limit, offset]
         );
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows,
             pagination: {
@@ -221,13 +239,15 @@ export async function GET(request: NextRequest) {
                 count: result.rows.length
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error("Erreur récupération réservations:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: "Erreur serveur" },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/parents/carpool/conduite:
  *   get:
@@ -18,21 +18,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST - Proposer un échange
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const body = await req.json();
         const {
             group_id,
@@ -45,17 +53,19 @@ export async function POST(req: NextRequest) {
         } = body;
 
         if (!group_id || !original_date || !exchange_type) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id, original_date et exchange_type sont requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (!['swap', 'give', 'request'].includes(exchange_type)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'exchange_type doit être: swap, give ou request' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const memberCheck = await query(
@@ -63,14 +73,15 @@ export async function POST(req: NextRequest) {
             SELECT id FROM carpool_group_members 
             WHERE group_id = $1 AND parent_id = $2 AND status = 'accepted'
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
         if (memberCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Vous devez être membre du groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (target_driver_id) {
@@ -83,10 +94,11 @@ export async function POST(req: NextRequest) {
             );
 
             if (targetCheck.rowCount === 0) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: 'Le conducteur cible doit être membre du groupe' },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
         }
 
@@ -102,7 +114,7 @@ export async function POST(req: NextRequest) {
             [
                 group_id,
                 calendar_id || null,
-                user.id,
+                userId,
                 target_driver_id || null,
                 original_date,
                 proposed_date || null,
@@ -111,7 +123,7 @@ export async function POST(req: NextRequest) {
             ]
         );
 
-// Récupérer les parents du groupe (hors demandeur)
+        // Récupérer les parents du groupe (hors demandeur)
         const parents = await query(
             `
                 SELECT p.id as parent_id, u.name as parent_name
@@ -119,10 +131,10 @@ export async function POST(req: NextRequest) {
                          INNER JOIN users u ON p.parent_id=u.id
                 WHERE p.group_id=$1 AND p.status='accepted' AND p.parent_id <> $2
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
-// Créer notification pour chaque parent
+        // Créer notification pour chaque parent
         for (const parent of parents.rows) {
             const notif = await query(
                 `
@@ -134,7 +146,7 @@ export async function POST(req: NextRequest) {
                     'Nouvelle proposition d\'échange',
                     'carpool_exchange',
                     `Une nouvelle proposition d'échange a été faite pour votre groupe. Date: ${proposed_date || original_date}`,
-                    user.id,
+                    userId,
                     new Date() // envoie immédiat
                 ]
             );
@@ -168,7 +180,7 @@ export async function POST(req: NextRequest) {
         );
 
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             {
                 success: true,
                 message: 'Proposition d\'échange créée avec succès',
@@ -176,10 +188,11 @@ export async function POST(req: NextRequest) {
             },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur création échange:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -187,30 +200,35 @@ export async function POST(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // GET - Récupérer les propositions d'échange
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const { searchParams } = new URL(req.url);
         const group_id = searchParams.get('group_id');
         const type = searchParams.get('type'); // 'sent', 'received', 'all'
 
         if (!group_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const memberCheck = await query(
@@ -218,25 +236,26 @@ export async function GET(req: NextRequest) {
             SELECT id FROM carpool_group_members 
             WHERE group_id = $1 AND parent_id = $2 AND status = 'accepted'
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
         if (memberCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Vous devez être membre du groupe' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         let whereClause = 'e.group_id = $1';
-        const params = [group_id];
+        const params: any[] = [Number(group_id)];
 
         if (type === 'sent') {
             whereClause += ' AND e.requester_id = $2';
-            params.push(user.id);
+            params.push(userId);
         } else if (type === 'received') {
             whereClause += ' AND (e.target_driver_id = $2 OR e.target_driver_id IS NULL)';
-            params.push(user.id);
+            params.push(userId);
         }
 
         const result = await query(
@@ -283,18 +302,19 @@ export async function GET(req: NextRequest) {
                 END,
                 e.created_at DESC
             `,
-            [...params, user.id]
+            [...params, userId]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows,
             count: result.rows.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération échanges:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -302,36 +322,42 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // PUT - Répondre à une proposition
 export async function PUT(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const body = await req.json();
         const { exchange_id, action } = body; // action: 'accept', 'decline', 'cancel'
 
         if (!exchange_id || !action) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'exchange_id et action sont requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (!['accept', 'decline', 'cancel'].includes(action)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'action doit être: accept, decline ou cancel' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const exchangeCheck = await query(
@@ -340,27 +366,30 @@ export async function PUT(req: NextRequest) {
         );
 
         if (exchangeCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Proposition introuvable ou déjà traitée' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const exchange = exchangeCheck.rows[0];
 
         if (action === 'cancel') {
-            if (exchange.requester_id !== user.id) {
-                return NextResponse.json(
+            if (exchange.requester_id !== userId) {
+                const response = NextResponse.json(
                     { success: false, error: 'Seul le demandeur peut annuler la proposition' },
                     { status: 403 }
                 );
+                return setCorsHeaders(response, origin);
             }
         } else {
-            if (exchange.target_driver_id && exchange.target_driver_id !== user.id) {
-                return NextResponse.json(
+            if (exchange.target_driver_id && exchange.target_driver_id !== userId) {
+                const response = NextResponse.json(
                     { success: false, error: 'Vous n\'êtes pas le destinataire de cette proposition' },
                     { status: 403 }
                 );
+                return setCorsHeaders(response, origin);
             }
         }
 
@@ -384,7 +413,7 @@ export async function PUT(req: NextRequest) {
                     SET driver_id = $1, updated_at = NOW()
                     WHERE id = $2
                     `,
-                    [user.id, exchange.calendar_id]
+                    [userId, exchange.calendar_id]
                 );
             } else if (exchange.exchange_type === 'give') {
                 await query(
@@ -398,16 +427,17 @@ export async function PUT(req: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: action === 'accept' ? 'Échange accepté' :
                 action === 'decline' ? 'Échange refusé' :
                     'Proposition annulée'
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur réponse échange:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -415,5 +445,6 @@ export async function PUT(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

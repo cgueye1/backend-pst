@@ -6,10 +6,15 @@
  *     tags: [ADMIN]
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
     try {
         // Nombre de parents
         const parentsRes = await query(`
@@ -200,7 +205,8 @@ export async function GET() {
         `);
 
         // Safe data extraction with fallbacks
-        return NextResponse.json({
+        const origin = req.headers.get('origin');
+        const response = NextResponse.json({
             success: true,
             users: {
                 parents: parentsRes.rows[0]?.total || 0,
@@ -226,12 +232,15 @@ export async function GET() {
             incidents: incidentAlerts.rows || [],
             result: result.rows || []
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error("Dashboard Error:", error);
-        return NextResponse.json({
+        const origin = req.headers.get('origin');
+        const errorResponse = NextResponse.json({
             error: "Server error",
             message: error instanceof Error ? error.message : "Unknown error"
         }, { status: 500 });
+        return setCorsHeaders(errorResponse, origin);
     }
 }

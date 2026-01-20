@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { emitToUser } from "@/lib/emitters";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/conversations:
@@ -10,6 +11,10 @@ import { emitToUser } from "@/lib/emitters";
  *     summary: Récupérer toutes les conversations de l'utilisateur connecté
  *     tags: [Messagerie]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await getUserFromRequest(req);

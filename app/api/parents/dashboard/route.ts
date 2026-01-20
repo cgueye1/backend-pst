@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
 import {query} from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/dashboard:
@@ -11,16 +12,22 @@ import {query} from "@/lib/db";
  *     security:
  *       - BearerAuth: []
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(req: NextRequest) {
+  const origin = req.headers.get('origin');
   try {
     /*  AUTHENTIFICATION */
     const user = await getUserFromRequest(req);
 
     if (!user || user.role !== "parent") {
-      return NextResponse.json(
+      const response = NextResponse.json(
           { success: false, error: "Non autorisé" },
           { status: 401 }
       );
+      return setCorsHeaders(response, origin);
     }
 
     const user_id = user.id;
@@ -79,7 +86,7 @@ export async function GET(req: NextRequest) {
     `, [user_id]);
 
     /* RÉPONSE FINALE */
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         user: {
@@ -97,12 +104,14 @@ export async function GET(req: NextRequest) {
         timestamp: new Date().toISOString()
       }
     });
+    return setCorsHeaders(response, origin);
 
   } catch (error) {
     console.error("Erreur dashboard parent:", error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
         { success: false, error: "Erreur serveur" },
         { status: 500 }
     );
+    return setCorsHeaders(errorResponse, origin);
   }
 }

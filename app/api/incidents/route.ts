@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/incidents:
  *   get:
@@ -26,6 +26,7 @@ import {getUserFromRequest} from "@/lib/auth";
 
 import fs from 'fs';
 import path from 'path';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 interface Incident {
     id: number;
     type_de_problem: string;
@@ -39,7 +40,12 @@ interface Incident {
 }
 
 // GET: Retrieve incidents with search and pagination
-export async function GET(req: Request) {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const { searchParams } = new URL(req.url);
         const search = searchParams.get('search') || '';
@@ -58,6 +64,23 @@ export async function GET(req: Request) {
         const values = [`%${search}%`, limit, offset];
         const result = await query(sql, values);
 
+        // Parser les documents JSON pour chaque incident
+        const incidents = result.rows.map((incident: any) => {
+            if (incident.documents) {
+                try {
+                    incident.documents = typeof incident.documents === 'string' 
+                        ? JSON.parse(incident.documents) 
+                        : incident.documents;
+                } catch (e) {
+                    console.error('Error parsing documents:', e);
+                    incident.documents = [];
+                }
+            } else {
+                incident.documents = [];
+            }
+            return incident;
+        });
+
         // Count query remains similar
         const countSql = `
             SELECT COUNT(*) as total
@@ -67,13 +90,15 @@ export async function GET(req: Request) {
         const countResult = await query(countSql, [`%${search}%`]);
         const total = parseInt(countResult.rows[0].total, 10);
 
-        return NextResponse.json({
-            incidents: result.rows,
+        const response = NextResponse.json({
+            incidents: incidents,
             pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('GET incidents error:', error);
-        return NextResponse.json({ error: 'Failed to fetch incidents' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Failed to fetch incidents' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
@@ -91,10 +116,12 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
         if (!user) {
-            return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+            const response = NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+            return setCorsHeaders(response, origin);
         }
 
         const formData = await req.formData();
@@ -102,10 +129,11 @@ export async function POST(req: NextRequest) {
         const description = formData.get('description') as string;
 
         if (!type_de_problem || !description) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Champs obligatoires manquants' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // 📁 Gestion des documents (1 à 3 max)
@@ -131,10 +159,11 @@ export async function POST(req: NextRequest) {
         }
 
         if (documents.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Au moins un document est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const res = await query(
@@ -148,14 +177,16 @@ export async function POST(req: NextRequest) {
             [type_de_problem, description, JSON.stringify(documents), user.id]
         );
 
-        return NextResponse.json(res.rows[0], { status: 201 });
+        const response = NextResponse.json(res.rows[0], { status: 201 });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('POST incident error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Erreur lors de la création de l’incident' },
+        const response = NextResponse.json(
+            { error: error.message || 'Erreur lors de la création de l incident' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }
 

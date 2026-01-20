@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // API PARENT - MON COMPTE (Next.js)
 // Fichier: app/api/parents/account/route.ts
 // ========================================
@@ -10,6 +10,7 @@ import bcrypt from "bcrypt";
 import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/account:
@@ -23,15 +24,21 @@ import { join } from "path";
  *     tags: [Parents]
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const result = await query(
@@ -53,35 +60,40 @@ export async function GET(request: NextRequest) {
         );
 
         if (result.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Utilisateur introuvable' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows[0]
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur récupération compte:', error);
-        return NextResponse.json(
+        const response = NextResponse.json(
             { success: false, error: 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }
 
 export async function PUT(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await request.json();
@@ -89,10 +101,11 @@ export async function PUT(request: NextRequest) {
 
         // Validation
         if (!name || name.trim() === '') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Le nom est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const result = await query(
@@ -108,18 +121,20 @@ export async function PUT(request: NextRequest) {
             [name, phone, address, user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: 'Informations mises à jour',
             data: result.rows[0]
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur mise à jour compte:', error);
-        return NextResponse.json(
+        const response = NextResponse.json(
             { success: false, error: 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(response, origin);
     }
 }
 

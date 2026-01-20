@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 /**
  * @swagger
@@ -9,6 +10,9 @@ import { NextResponse } from "next/server";
  *     tags: [Auth]
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(req: Request) {
     const response = NextResponse.json({ message: "Logout successful" });

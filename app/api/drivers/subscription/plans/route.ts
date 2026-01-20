@@ -1,4 +1,4 @@
-
+﻿
 /**
  * @swagger
  * /api/drivers/subscription/plans:
@@ -11,15 +11,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const plans = await query(
@@ -38,17 +45,19 @@ export async function GET(request: NextRequest) {
             `
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: plans.rows
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur GET plans:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
@@ -119,14 +128,16 @@ export async function GET(request: NextRequest) {
  */
 
 export async function POST (request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await request.json();
@@ -145,10 +156,11 @@ export async function POST (request: NextRequest) {
 
         // Validation
         if (!method_type || !['card', 'mobile_money'].includes(method_type)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Type de méthode invalide" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         let methodData: any = {
@@ -159,10 +171,11 @@ export async function POST (request: NextRequest) {
 
         if (method_type === 'card') {
             if (!card_holder_name || !card_number || !card_cvv || !card_exp_month || !card_exp_year) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, message: "Informations de carte incomplètes" },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             const card_last4 = card_number.replace(/\s/g, '').slice(-4);
@@ -182,10 +195,11 @@ export async function POST (request: NextRequest) {
 
         } else if (method_type === 'mobile_money') {
             if (!mobile_number || !mobile_provider) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, message: "Informations mobile money incomplètes" },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             methodData = {
@@ -222,7 +236,7 @@ export async function POST (request: NextRequest) {
             ]
         );
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             {
                 success: true,
                 message: "Méthode de paiement ajoutée avec succès",
@@ -230,13 +244,15 @@ export async function POST (request: NextRequest) {
             },
             { status: 201 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur POST payment method:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 

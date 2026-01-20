@@ -1,7 +1,8 @@
-import {getUserFromRequest} from "@/lib/auth";
+﻿import {getUserFromRequest} from "@/lib/auth";
 import {NextRequest, NextResponse} from "next/server";
 import {query} from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/dashboard:
@@ -17,16 +18,22 @@ import {query} from "@/lib/db";
  *       - bearerAuth: []
 
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         //   Vérifier l'authentification et le rôle
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'driver') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         //   Récupérer le driver et vérifier son statut
@@ -36,22 +43,24 @@ export async function GET(request: NextRequest) {
         );
 
         if (driverResult.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Chauffeur introuvable' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const driver = driverResult.rows[0];
 
         if (driver.status !== 'Approuvé') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     error: 'Votre compte chauffeur est en attente d\'approbation',
                     status: driver.status
                 },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const driverId = driver.id;
@@ -252,7 +261,7 @@ export async function GET(request: NextRequest) {
         );
 
         //  Retourner toutes les données
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: {
                 // Informations du chauffeur
@@ -289,15 +298,17 @@ export async function GET(request: NextRequest) {
                 timestamp: new Date().toISOString()
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur dashboard chauffeur:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur lors de la récupération du dashboard',
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

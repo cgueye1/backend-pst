@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 /**
  * @swagger
@@ -13,17 +13,21 @@ import { hashPassword } from "@/lib/auth";
 
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const { userId, code, newPassword } = await req.json();
 
         if (!userId || !code || !newPassword) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: "Paramètres manquants" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérification OTP en enlevant les espaces (CHAR(4) padding)
@@ -33,10 +37,11 @@ export async function POST(req: Request) {
         );
 
         if (!res.rows[0]) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: "Code invalide ou expiré" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Hash du nouveau mot de passe
@@ -48,10 +53,12 @@ export async function POST(req: Request) {
         // Suppression du code utilisé
         await query(`DELETE FROM password_resets WHERE user_id=$1`, [userId]);
 
-        return NextResponse.json({ message: "Mot de passe réinitialisé avec succès" });
+        const response = NextResponse.json({ message: "Mot de passe réinitialisé avec succès" });
+        return setCorsHeaders(response, origin);
 
     } catch (err: unknown) {
         const error = err instanceof Error ? err.message : "Unknown error";
-        return NextResponse.json({ error }, { status: 500 });
+        const response = NextResponse.json({ error }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

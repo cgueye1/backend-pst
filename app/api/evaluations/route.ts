@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/evaluations:
  *   post:
@@ -19,8 +19,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -267,4 +272,8 @@ export async function GET(req: NextRequest) {
         );
     }
 }
+
+
+
+
 

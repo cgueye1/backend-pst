@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/auth/register-driver:
  *   post:
@@ -7,12 +7,13 @@
 
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { File } from "formdata-node";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,10 @@ export const dynamic = 'force-dynamic';
 // Dossier uploads
 const uploadDir = path.join(process.cwd(), "uploads/drivers");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(req: Request) {
     try {

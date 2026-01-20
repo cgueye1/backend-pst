@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword, authMiddleware } from "@/lib/auth";
 import { deleteUser, getUserById, updateUser } from "@/services/userServices";
-import {updateDriverStatus} from "@/services/driverServices";
+import { updateDriverStatus } from "@/services/driverServices";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 // Dans app routes Next, params est un Promise : on le tape explicitement
 type ParamsPromise = { params: Promise<{ id: string }> };
@@ -25,73 +26,90 @@ type ParamsPromise = { params: Promise<{ id: string }> };
 
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 
-export async function GET(req: Request, ctx: ParamsPromise) {
+export async function GET(req: NextRequest, ctx: ParamsPromise) {
+    const origin = req.headers.get('origin');
     try {
         const user = authMiddleware(req);
         if (user.role !== "admin") {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const { id } = await ctx.params;
         const numId = Number(id);
         if (Number.isNaN(numId)) {
-            return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            const response = NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const res = await getUserById(numId);
-        return NextResponse.json(res);
+        const response = NextResponse.json(res);
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        console.error("GET /api/users/[messageId]] error:", err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        console.error("GET /api/users/[id] error:", err);
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
-export async function PUT(req: Request, ctx: ParamsPromise) {
+export async function PUT(req: NextRequest, ctx: ParamsPromise) {
+    const origin = req.headers.get('origin');
     try {
         const user = authMiddleware(req);
         if (user.role !== "admin") {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const { id } = await ctx.params;
         const numId = Number(id);
         if (Number.isNaN(numId)) {
-            console.error("PUT /api/users/[messageId]] invalid id:", id);
-            return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            console.error("PUT /api/users/[id] invalid id:", id);
+            const response = NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
-        console.log("PUT /api/users/[messageId]] payload:", { id: numId, body });
+        console.log("PUT /api/users/[id] payload:", { id: numId, body });
         const res = await updateUser(numId, body);
 
-        return NextResponse.json(res);
+        const response = NextResponse.json(res);
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        console.error("PUT /api/users/[messageId]] error:", err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        console.error("PUT /api/users/[id] error:", err);
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
-export async function DELETE(req: Request, ctx: ParamsPromise) {
+export async function DELETE(req: NextRequest, ctx: ParamsPromise) {
+    const origin = req.headers.get('origin');
     try {
         const user = authMiddleware(req);
         if (user.role !== "admin") {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            const response = NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const { id } = await ctx.params;
         const numId = Number(id);
         if (Number.isNaN(numId)) {
-            console.error(
-"DELETE /api/users/[messageId]] invalid id:", id);
-            return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            console.error("DELETE /api/users/[id] invalid id:", id);
+            const response = NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         await deleteUser(numId);
-        return NextResponse.json({ success: true });
+        const response = NextResponse.json({ success: true });
+        return setCorsHeaders(response, origin);
     } catch (err) {
-        console.error("DELETE /api/users/[messageId]] error:", err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        console.error("DELETE /api/users/[id] error:", err);
+        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

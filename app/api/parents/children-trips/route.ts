@@ -1,7 +1,8 @@
-import {NextRequest, NextResponse} from "next/server";
+﻿import {NextRequest, NextResponse} from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
 import {query} from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/children-trips:
@@ -9,15 +10,21 @@ import {query} from "@/lib/db";
  *     summary: Gérer les enfants et leurs trajets associés
  *     tags: [Parents]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const result = await query(
@@ -65,16 +72,18 @@ export async function GET(request: NextRequest) {
             [user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: result.rows
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur récupération enfants-trajets:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: 'Erreur serveur' },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

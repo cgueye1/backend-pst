@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
+
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(request: NextRequest) {
     try {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/schools:
  *   get:
@@ -13,11 +13,11 @@
  */
 
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
-
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

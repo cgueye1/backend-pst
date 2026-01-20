@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { sendSms } from "@/lib/sms";
+
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function POST(request: NextRequest) {
     try {

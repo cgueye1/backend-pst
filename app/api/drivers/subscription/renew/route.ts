@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { getPaymentMethodToStore, normalizeMobileProvider } from "@/lib/payments/utils";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/subscription/renew:
@@ -10,15 +11,21 @@ import { getPaymentMethodToStore, normalizeMobileProvider } from "@/lib/payments
  *     summary: Renouveler l'abonnement
  *     tags: [CHAUFFEUR]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await request.json();
@@ -39,10 +46,11 @@ export async function POST(request: NextRequest) {
 
         // Validation
         if (!subscription_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "ID d'abonnement requis" },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Récupérer l'abonnement actuel
@@ -57,10 +65,11 @@ export async function POST(request: NextRequest) {
         );
 
         if (currentSubResult.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Abonnement introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const currentSub = currentSubResult.rows[0];
@@ -234,7 +243,7 @@ export async function POST(request: NextRequest) {
                 [notifResult.rows[0].id, user.id]
             );
 
-            return NextResponse.json({
+            const successResponse = NextResponse.json({
                 success: true,
                 message: "Abonnement renouvelé avec succès",
                 data: {
@@ -247,6 +256,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
             });
+            return setCorsHeaders(successResponse, origin);
 
         } catch (error) {
             await query('ROLLBACK');
@@ -255,9 +265,10 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Erreur renouvellement abonnement:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

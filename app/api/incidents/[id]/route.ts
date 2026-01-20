@@ -1,5 +1,13 @@
 import { query } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { getUserFromRequest } from '@/lib/auth';
+
+import path from "path";
+
+
+// Handle new file uploads
+import fs from "fs";
 
 type Params = {
     params: Promise<{
@@ -7,30 +15,54 @@ type Params = {
     }>;
 };
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 // GET: Récupérer un incident par ID
 export async function GET(
     req: NextRequest,
     context: Params
 ) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = parseInt(id, 10);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const sql = 'SELECT * FROM incidents WHERE id = $1';
         const result = await query(sql, [numericId]);
 
         if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json(result.rows[0]);
+        // Parser les documents JSON
+        const incident = result.rows[0];
+        if (incident.documents) {
+            try {
+                incident.documents = typeof incident.documents === 'string' 
+                    ? JSON.parse(incident.documents) 
+                    : incident.documents;
+            } catch (e) {
+                console.error('Error parsing documents:', e);
+                incident.documents = [];
+            }
+        } else {
+            incident.documents = [];
+        }
+
+        const response = NextResponse.json(incident);
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('GET incident by ID error:', error);
-        return NextResponse.json({ error: 'Failed to fetch incident' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Failed to fetch incident' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
@@ -39,40 +71,137 @@ export async function PUT(
     req: NextRequest,
     context: Params
 ) {
+    const origin = req.headers.get('origin');
     try {
+        // Vérifier l'authentification
+        const user = await getUserFromRequest(req);
+        if (!user) {
+            const response = NextResponse.json({ error: 'Non autorise' }, { status: 401 });
+            return setCorsHeaders(response, origin);
+        }
+
         const { id } = await context.params;
         const numericId = parseInt(id, 10);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const formData = await req.formData();
         const type_de_problem = formData.get('type_de_problem') as string;
         const description = formData.get('description') as string;
-        const userIdStr = formData.get('user_id') as string;
-        const user_id = parseInt(userIdStr, 10);
+        
+        // Récupérer l'user_id depuis l'incident existant pour préserver l'original
+        const existingIncident = await query('SELECT user_id FROM incidents WHERE id = $1', [numericId]);
+        if (existingIncident.rows.length === 0) {
+            const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            return setCorsHeaders(response, origin);
+        }
+        const user_id = existingIncident.rows[0].user_id;
 
         // Validation
         if (!type_de_problem || !description || isNaN(user_id)) {
-            return NextResponse.json({
+            const response = NextResponse.json({
                 error: 'Missing or invalid required fields'
             }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
-        // Handle new file uploads
-        const documents: any[] = [];
+        // Récupérer les documents existants
+        const existingIncidentData = await query('SELECT documents FROM incidents WHERE id = $1', [numericId]);
+        let existingDocuments: any[] = [];
+        if (existingIncidentData.rows[0]?.documents) {
+            try {
+                existingDocuments = typeof existingIncidentData.rows[0].documents === 'string' 
+                    ? JSON.parse(existingIncidentData.rows[0].documents) 
+                    : existingIncidentData.rows[0].documents;
+            } catch (e) {
+                console.error('Error parsing existing documents:', e);
+                existingDocuments = [];
+            }
+        }
+        const uploadDir = path.join(process.cwd(), '/uploads/incidents');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Récupérer les URLs des documents à garder (utiliser l'URL comme identifiant unique)
+        // Si keep_documents est présent (même vide), on filtre selon les URLs
+        // Si keep_documents n'est pas présent du tout, on garde tous les documents existants
+        const documentsUrlsToKeep: string[] = [];
+        let keepIndex = 0;
+        let hasKeepDocuments = false;
+        while (formData.has(`keep_documents[${keepIndex}]`)) {
+            hasKeepDocuments = true;
+            const docUrl = formData.get(`keep_documents[${keepIndex}]`) as string;
+            if (docUrl) {
+                documentsUrlsToKeep.push(docUrl);
+            }
+            keepIndex++;
+        }
+
+        console.log('Documents existants:', existingDocuments);
+        console.log('URLs à garder:', documentsUrlsToKeep);
+        console.log('hasKeepDocuments:', hasKeepDocuments);
+
+        // Filtrer les documents existants à garder en utilisant l'URL comme identifiant
+        let filteredExistingDocuments: any[] = [];
+        if (hasKeepDocuments) {
+            // Si keep_documents a été envoyé (même vide), filtrer selon les URLs
+            filteredExistingDocuments = existingDocuments.filter((doc) => {
+                const docUrl = doc.url || doc.path || '';
+                // Comparaison flexible : normaliser les URLs (enlever les slashes en début si nécessaire)
+                const normalizedDocUrl = docUrl.startsWith('/') ? docUrl : `/${docUrl}`;
+                const normalizedKeepUrl = documentsUrlsToKeep.map(url => url.startsWith('/') ? url : `/${url}`);
+                return normalizedKeepUrl.includes(normalizedDocUrl) || documentsUrlsToKeep.includes(docUrl);
+            });
+        } else {
+            // Si keep_documents n'a pas été envoyé, garder tous les documents existants (compatibilité)
+            filteredExistingDocuments = existingDocuments;
+        }
+
+        console.log('Documents filtrés à garder:', filteredExistingDocuments);
+
+        // Traiter les nouveaux documents
+        const newDocuments: any[] = [];
         let index = 0;
         while (formData.has(`documents[${index}]`)) {
             const file = formData.get(`documents[${index}]`) as File;
             if (file) {
-                documents.push({
+                const ext = path.extname(file.name);
+                const filename = `incident_${Date.now()}_${index}${ext}`;
+                const filePath = path.join(uploadDir, filename);
+
+                // Convertir File en Buffer et sauvegarder
+                const bytes = await file.arrayBuffer();
+                fs.writeFileSync(filePath, Buffer.from(bytes));
+
+                newDocuments.push({
                     name: file.name,
                     size: file.size,
                     type: file.type,
+                    url: `/uploads/incidents/${filename}`,
                 });
             }
             index++;
+        }
+
+        // Fusionner les documents existants (filtrés) avec les nouveaux
+        // Limiter à 3 documents maximum au total
+        const allDocuments = [...filteredExistingDocuments, ...newDocuments].slice(0, 3);
+
+        console.log('Nouveaux documents:', newDocuments);
+        console.log('Tous les documents (fusionnés):', allDocuments);
+
+        // Validation : au moins un document est requis
+        if (allDocuments.length === 0) {
+            console.error('Erreur: Aucun document après fusion');
+            const response = NextResponse.json(
+                { error: 'Au moins un document est requis. Veuillez conserver au moins un document existant ou ajouter un nouveau fichier.' },
+                { status: 400 }
+            );
+            return setCorsHeaders(response, origin);
         }
 
         // Update query
@@ -91,19 +220,48 @@ export async function PUT(
         const result = await query(sql, [
             type_de_problem,
             description,
-            documents.length > 0 ? JSON.stringify(documents) : null,
+            allDocuments.length > 0 ? JSON.stringify(allDocuments) : null,
             user_id,
             numericId
         ]);
 
         if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json(result.rows[0]);
-    } catch (error) {
+        // Parser les documents JSON dans la réponse
+        const incident = result.rows[0];
+        if (incident.documents) {
+            try {
+                incident.documents = typeof incident.documents === 'string' 
+                    ? JSON.parse(incident.documents) 
+                    : incident.documents;
+            } catch (e) {
+                console.error('Error parsing documents:', e);
+                incident.documents = [];
+            }
+        } else {
+            incident.documents = [];
+        }
+
+        const response = NextResponse.json(incident);
+        return setCorsHeaders(response, origin);
+    } catch (error: any) {
         console.error('PUT incident error:', error);
-        return NextResponse.json({ error: 'Failed to update incident' }, { status: 500 });
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        const response = NextResponse.json(
+            { 
+                error: error.message || 'Failed to update incident',
+                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            }, 
+            { status: 500 }
+        );
+        return setCorsHeaders(response, origin);
     }
 }
 
@@ -112,12 +270,14 @@ export async function DELETE(
     req: NextRequest,
     context: Params
 ) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = parseInt(id, 10);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         // Optionnel: Vérifier que l'utilisateur a le droit de supprimer
@@ -125,25 +285,29 @@ export async function DELETE(
         const user_id = searchParams.get('user_id');
 
         if (!user_id) {
-            return NextResponse.json({
+            const response = NextResponse.json({
                 error: 'user_id is required'
             }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const sql = 'DELETE FROM incidents WHERE id = $1 RETURNING *';
         const result = await query(sql, [numericId]);
 
         if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             message: 'Incident deleted successfully',
             incident: result.rows[0]
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('DELETE incident error:', error);
-        return NextResponse.json({ error: 'Failed to delete incident' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Failed to delete incident' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
@@ -152,21 +316,24 @@ export async function PATCH(
     req: NextRequest,
     context: Params
 ) {
+    const origin = req.headers.get('origin');
     try {
         const { id } = await context.params;
         const numericId = parseInt(id, 10);
 
         if (isNaN(numericId)) {
-            return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { status } = body;
 
         if (!status || !['En cours', 'Resolu'].includes(status)) {
-            return NextResponse.json({
+            const response = NextResponse.json({
                 error: 'Invalid status. Must be "En cours" or "Resolu"'
             }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         const sql = `
@@ -179,12 +346,15 @@ export async function PATCH(
         const result = await query(sql, [status, numericId]);
 
         if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json(result.rows[0]);
+        const response = NextResponse.json(result.rows[0]);
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error('PATCH incident error:', error);
-        return NextResponse.json({ error: 'Failed to update incident status' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Failed to update incident status' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import {emitToUser, pool} from "@/lib/emitters";
 import { query } from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/conversations/group:
@@ -10,6 +11,10 @@ import { query } from "@/lib/db";
  *     summary: Créer une conversation de groupe
  *     tags: [Messagerie]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
     const client = await pool.connect();
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/parents/children/schedules:
  *   get:
@@ -18,18 +18,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Mapping des jours entre format API (anglais) et format base de données (français)
+const DAY_MAPPING_EN_TO_FR: { [key: string]: string } = {
+    'monday': 'Lundi',
+    'tuesday': 'Mardi',
+    'wednesday': 'Mercredi',
+    'thursday': 'Jeudi',
+    'friday': 'Vendredi',
+    'saturday': 'Samedi',
+    'sunday': 'Dimanche'
+};
+
+const DAY_MAPPING_FR_TO_EN: { [key: string]: string } = {
+    'Lundi': 'monday',
+    'Mardi': 'tuesday',
+    'Mercredi': 'wednesday',
+    'Jeudi': 'thursday',
+    'Vendredi': 'friday',
+    'Samedi': 'saturday',
+    'Dimanche': 'sunday'
+};
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function PUT(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
@@ -37,20 +65,22 @@ export async function PUT(req: NextRequest) {
 
         // Validation
         if (!child_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'child_id est requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (!schedules || !Array.isArray(schedules) || schedules.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
                     error: 'schedules doit être un tableau non vide. Format: [{ day: "monday", arrival_time: "08:00", departure_time: "16:30" }]'
                 },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier que l'enfant appartient bien au parent
@@ -60,58 +90,53 @@ export async function PUT(req: NextRequest) {
         );
 
         if (ownerCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Enfant introuvable ou non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const childName = ownerCheck.rows[0].name;
 
-        // Valider chaque horaire
+        // Valider et convertir les horaires au format JSONB attendu
         const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const scheduleArray = [];
 
         for (const schedule of schedules) {
             if (!schedule.day || !validDays.includes(schedule.day)) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     {
                         success: false,
                         error: `Jour invalide. Valeurs acceptées: ${validDays.join(', ')}`
                     },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
 
             if (!schedule.arrival_time || !schedule.departure_time) {
-                return NextResponse.json(
+                const response = NextResponse.json(
                     { success: false, error: 'arrival_time et departure_time sont requis pour chaque horaire' },
                     { status: 400 }
                 );
+                return setCorsHeaders(response, origin);
             }
+
+            // Convertir au format JSONB attendu
+            scheduleArray.push({
+                day: DAY_MAPPING_EN_TO_FR[schedule.day],
+                open: true,
+                openTime: schedule.arrival_time,
+                closeTime: schedule.departure_time
+            });
         }
 
-        // Supprimer les anciens horaires
+        // Mettre à jour la colonne schedule dans la table children
         await query(
-            `DELETE FROM child_schedules WHERE child_id = $1`,
-            [child_id]
+            `UPDATE children SET schedule = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(scheduleArray), child_id]
         );
-
-        // Ajouter les nouveaux horaires
-        for (const schedule of schedules) {
-            await query(
-                `
-                INSERT INTO child_schedules (
-                    child_id,
-                    day_of_week,
-                    arrival_time,
-                    departure_time,
-                    created_at
-                )
-                VALUES ($1, $2, $3, $4, NOW())
-                `,
-                [child_id, schedule.day, schedule.arrival_time, schedule.departure_time]
-            );
-        }
 
         // Récupérer l'enfant avec ses nouveaux horaires
         const updatedChild = await query(
@@ -119,43 +144,36 @@ export async function PUT(req: NextRequest) {
             SELECT 
                 c.id,
                 c.name,
-                COALESCE(
-                    json_agg(
-                        json_build_object(
-                            'id', cs.id,
-                            'day', cs.day_of_week,
-                            'arrival_time', cs.arrival_time::text,
-                            'departure_time', cs.departure_time::text
-                        ) ORDER BY 
-                            CASE cs.day_of_week
-                                WHEN 'monday' THEN 1
-                                WHEN 'tuesday' THEN 2
-                                WHEN 'wednesday' THEN 3
-                                WHEN 'thursday' THEN 4
-                                WHEN 'friday' THEN 5
-                                WHEN 'saturday' THEN 6
-                                WHEN 'sunday' THEN 7
-                            END
-                    ) FILTER (WHERE cs.id IS NOT NULL),
-                    '[]'::json
-                ) as schedules
+                c.schedule
             FROM children c
-            LEFT JOIN child_schedules cs ON c.id = cs.child_id
             WHERE c.id = $1
-            GROUP BY c.id
             `,
             [child_id]
         );
 
-        return NextResponse.json({
+        // Convertir le format JSONB au format attendu par l'API
+        const schedule = updatedChild.rows[0].schedule || [];
+        const formattedSchedules = Array.isArray(schedule) ? schedule.map((item: any) => ({
+            day: DAY_MAPPING_FR_TO_EN[item.day] || item.day.toLowerCase(),
+            arrival_time: item.openTime || item.arrival_time,
+            departure_time: item.closeTime || item.departure_time,
+            open: item.open !== undefined ? item.open : true
+        })) : [];
+
+        const response = NextResponse.json({
             success: true,
             message: `Horaires personnalisés pour ${childName} enregistrés avec succès`,
-            data: updatedChild.rows[0]
+            data: {
+                id: updatedChild.rows[0].id,
+                name: updatedChild.rows[0].name,
+                schedules: formattedSchedules
+            }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur personnalisation horaires:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -163,6 +181,7 @@ export async function PUT(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
@@ -170,24 +189,27 @@ export async function PUT(req: NextRequest) {
 // GET - Récupérer les horaires d'un enfant
 // ========================================
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { searchParams } = new URL(req.url);
         const child_id = searchParams.get('child_id');
 
         if (!child_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'child_id est requis dans les query params' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Vérifier que l'enfant appartient bien au parent
@@ -197,46 +219,53 @@ export async function GET(req: NextRequest) {
         );
 
         if (ownerCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Enfant introuvable ou non autorisé' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
-        // Récupérer les horaires
+        // Récupérer les horaires depuis la colonne schedule
         const result = await query(
             `
             SELECT 
                 id,
-                day_of_week as day,
-                arrival_time::text as arrival_time,
-                departure_time::text as departure_time,
-                created_at
-            FROM child_schedules
-            WHERE child_id = $1
-            ORDER BY 
-                CASE day_of_week
-                    WHEN 'monday' THEN 1
-                    WHEN 'tuesday' THEN 2
-                    WHEN 'wednesday' THEN 3
-                    WHEN 'thursday' THEN 4
-                    WHEN 'friday' THEN 5
-                    WHEN 'saturday' THEN 6
-                    WHEN 'sunday' THEN 7
-                END
+                name,
+                schedule
+            FROM children
+            WHERE id = $1
             `,
             [child_id]
         );
 
-        return NextResponse.json({
+        if (result.rows.length === 0) {
+            const response = NextResponse.json(
+                { success: false, error: 'Enfant introuvable' },
+                { status: 404 }
+            );
+            return setCorsHeaders(response, origin);
+        }
+
+        // Convertir le format JSONB au format attendu par l'API
+        const schedule = result.rows[0].schedule || [];
+        const formattedSchedules = Array.isArray(schedule) ? schedule.map((item: any) => ({
+            day: DAY_MAPPING_FR_TO_EN[item.day] || item.day.toLowerCase(),
+            arrival_time: item.openTime || item.arrival_time,
+            departure_time: item.closeTime || item.departure_time,
+            open: item.open !== undefined ? item.open : true
+        })) : [];
+
+        const response = NextResponse.json({
             success: true,
-            data: result.rows,
-            count: result.rows.length
+            data: formattedSchedules,
+            count: formattedSchedules.length
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération horaires:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -244,5 +273,6 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

@@ -1,28 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 /**
  * @swagger
  * /api/parents/reservations/{tripId}/{childId}:
  *   delete:
  *     summary: Annuler une réservation
- *     description: Permet à un parent d’annuler la réservation de son enfant pour un trajet donné
+ *     description: Permet à un parent d'annuler la réservation de son enfant pour un trajet donné
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ tripId: string; childId: string }> }
 ) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Non autorisé" },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { tripId, childId } = await params;
@@ -35,10 +42,11 @@ export async function DELETE(
         );
 
         if (childCheck.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         /* 2️⃣ Vérifier le trajet */
@@ -48,33 +56,36 @@ export async function DELETE(
         );
 
         if (tripCheck.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Trajet introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const trip = tripCheck.rows[0];
 
         // Vérifier que le trajet n'est pas dans le passé
         if (new Date(trip.departure_time) < new Date()) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
                     error: "Impossible d'annuler un trajet déjà passé",
                 },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (trip.status === "in_progress" || trip.status === "completed") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
                     error: "Impossible d'annuler un trajet déjà commencé ou terminé",
                 },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         /* 3️⃣ Supprimer la réservation */
@@ -86,10 +97,11 @@ export async function DELETE(
         );
 
         if (deleteResult.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Réservation introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         /* 4️⃣ Notifier le chauffeur */
@@ -130,15 +142,17 @@ export async function DELETE(
             );
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "Réservation annulée avec succès",
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error("Erreur annulation réservation :", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: "Erreur serveur" },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

@@ -1,9 +1,16 @@
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import swaggerUi from "swagger-ui-dist";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
 const UI_PATH = swaggerUi.getAbsoluteFSPath();
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
+export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
+    
     const html = `
   <!DOCTYPE html>
   <html>
@@ -27,5 +34,6 @@ export async function GET() {
   </html>
   `;
 
-    return new NextResponse(html, { headers: { "Content-Type": "text/html" } });
+    const response = new NextResponse(html, { headers: { "Content-Type": "text/html" } });
+    return setCorsHeaders(response, origin);
 }

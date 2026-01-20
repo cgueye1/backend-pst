@@ -1,4 +1,4 @@
-
+﻿
 /**
  * @swagger
  * /api/parents/carpool/invitations:
@@ -19,31 +19,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST - Inviter une famille
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { group_id, parent_email } = body;
 
         if (!group_id || !parent_email) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'group_id et parent_email sont requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const groupCheck = await query(
             `
             SELECT g.id, g.name, g.creator_id
@@ -51,14 +60,15 @@ export async function POST(req: NextRequest) {
             INNER JOIN carpool_group_members m ON g.id = m.group_id
             WHERE g.id = $1 AND m.parent_id = $2 AND m.status = 'accepted'
             `,
-            [group_id, user.id]
+            [group_id, userId]
         );
 
         if (groupCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Groupe introuvable ou vous n\'en êtes pas membre' },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const parentCheck = await query(
@@ -67,10 +77,11 @@ export async function POST(req: NextRequest) {
         );
 
         if (parentCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Aucun parent trouvé avec cet email' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const invitedParent = parentCheck.rows[0];
@@ -82,17 +93,17 @@ export async function POST(req: NextRequest) {
 
         if (Number(memberCheck.rowCount) > 0) {
             const currentStatus = memberCheck.rows[0].status;
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: false,
-                    error: `Cette famille est déjà ${
-                        currentStatus === 'accepted' ? 'membre du groupe' :
-                            currentStatus === 'pending' ? 'invitée (en attente)' :
-                                'a décliné l\'invitation'
-                    }`
+                    error: `Cette famille est déjà ${currentStatus === 'accepted' ? 'membre du groupe' :
+                        currentStatus === 'pending' ? 'invitée (en attente)' :
+                            'a décliné l\'invitation'
+                        }`
                 },
-                {status: 400}
+                { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         } else {
             const invitation = await query(
                 `
@@ -102,7 +113,7 @@ export async function POST(req: NextRequest) {
                 `,
                 [group_id, invitedParent.id]
             );
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: true,
                     message: `Invitation envoyée à ${invitedParent.name}`,
@@ -112,13 +123,14 @@ export async function POST(req: NextRequest) {
                         parent_email: invitedParent.email
                     }
                 },
-                {status: 201}
+                { status: 201 }
             );
+            return setCorsHeaders(response, origin);
         }
 
     } catch (error: any) {
         console.error('❌ Erreur invitation:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -126,28 +138,38 @@ export async function POST(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // GET - Récupérer les invitations
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
-        const userid= user.id;
-        console.log(userid)
+        const userId = Number(user.id);
+        console.log('🔍 User ID invitations:', userId, 'Type:', typeof userId);
 
         const { searchParams } = new URL(req.url);
         const group_id = searchParams.get('group_id');
         const type = searchParams.get('type');
 
         if (type === 'received') {
+            // Debug: vérifier les invitations en attente
+            const pendingCheck = await query(
+                `SELECT COUNT(*) as total FROM carpool_group_members WHERE parent_id = $1 AND status = 'pending'`,
+                [userId]
+            );
+            console.log('📨 Invitations en attente pour user:', pendingCheck.rows[0]?.total);
+
             const result = await query(
                 `
                 SELECT 
@@ -166,14 +188,17 @@ export async function GET(req: NextRequest) {
                 WHERE m.parent_id = $1 AND m.status = 'pending'
                 ORDER BY m.invited_at DESC
                  `,
-                [user.id]
+                [userId]
             );
 
-            return NextResponse.json({
+            console.log('✅ Invitations reçues trouvées:', result.rows.length);
+
+            const response = NextResponse.json({
                 success: true,
                 data: result.rows,
                 count: result.rows.length
             });
+            return setCorsHeaders(response, origin);
         }
 
         if (group_id) {
@@ -202,21 +227,23 @@ export async function GET(req: NextRequest) {
                 [group_id]
             );
 
-            return NextResponse.json({
+            const response = NextResponse.json({
                 success: true,
                 data: result.rows,
                 count: result.rows.length
             });
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             { success: false, error: 'Paramètre group_id ou type=received requis' },
             { status: 400 }
         );
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur récupération invitations:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -224,38 +251,44 @@ export async function GET(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
 // PUT - Répondre à une invitation
 export async function PUT(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const user = await getUserFromRequest(req);
 
         if (!user || user.role !== 'parent') {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const body = await req.json();
         const { invitation_id, action } = body;
 
         if (!invitation_id || !action) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'invitation_id et action sont requis' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         if (!['accept', 'decline'].includes(action)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'action doit être "accept" ou "decline"' },
                 { status: 400 }
             );
+            return setCorsHeaders(response, origin);
         }
 
+        const userId = Number(user.id);
         const invitationCheck = await query(
             `
             SELECT m.*, g.name as group_name
@@ -263,14 +296,15 @@ export async function PUT(req: NextRequest) {
             INNER JOIN carpool_groups g ON m.group_id = g.id
             WHERE m.id = $1 AND m.parent_id = $2 AND m.status = 'pending'
             `,
-            [invitation_id, user.id]
+            [invitation_id, userId]
         );
 
         if (invitationCheck.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: 'Invitation introuvable ou déjà traitée' },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const invitation = invitationCheck.rows[0];
@@ -285,16 +319,17 @@ export async function PUT(req: NextRequest) {
             [newStatus, invitation_id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: action === 'accept'
                 ? `Vous avez rejoint le groupe "${invitation.group_name}"`
                 : `Invitation au groupe "${invitation.group_name}" déclinée`
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error('❌ Erreur réponse invitation:', error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             {
                 success: false,
                 error: 'Erreur serveur',
@@ -302,5 +337,6 @@ export async function PUT(req: NextRequest) {
             },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

@@ -1,9 +1,10 @@
-// app/api/drivers/subscription/route.ts
+﻿// app/api/drivers/subscription/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import axios from "axios";
 import { getUserFromRequest } from "@/lib/auth";
 import { getPaymentMethodToStore } from "@/lib/payments/utils";
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/drivers/subscription:
@@ -12,12 +13,18 @@ import { getPaymentMethodToStore } from "@/lib/payments/utils";
  *     tags: [CHAUFFEUR]
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         // 1. Authentification et vérification du rôle
         const user = await getUserFromRequest(request);
         if (!user || user.role !== "driver") {
-            return NextResponse.json({ success: false, message: "Non autorisé" }, { status: 403 });
+            const response = NextResponse.json({ success: false, message: "Non autorisé" }, { status: 403 });
+            return setCorsHeaders(response, origin);
         }
 
         const body = await request.json();
@@ -25,13 +32,15 @@ export async function POST(request: NextRequest) {
 
         // 2. Validation des données
         if (!plan_id || !payment_method) {
-            return NextResponse.json({ success: false, message: "Plan ou méthode de paiement manquante" }, { status: 400 });
+            const response = NextResponse.json({ success: false, message: "Plan ou méthode de paiement manquante" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         // 3. Récupération du plan d'abonnement
         const planRes = await query(`SELECT * FROM subscription_plans WHERE id = $1`, [plan_id]);
         if (planRes.rowCount === 0) {
-            return NextResponse.json({ success: false, message: "Plan introuvable" }, { status: 404 });
+            const response = NextResponse.json({ success: false, message: "Plan introuvable" }, { status: 404 });
+            return setCorsHeaders(response, origin);
         }
         const plan = planRes.rows[0];
 
@@ -94,17 +103,20 @@ export async function POST(request: NextRequest) {
         );
 
         if (response.data.success === 1 || response.data.success === "1") {
-            return NextResponse.json({
+            const successResponse = NextResponse.json({
                 success: true,
                 payment_url: response.data.redirect_url, // URL vers le QR Code ou Formulaire Carte
                 transaction_id: transactionId
             });
+            return setCorsHeaders(successResponse, origin);
         } else {
-            return NextResponse.json({ success: false, message: response.data.message }, { status: 400 });
+            const errorResponse = NextResponse.json({ success: false, message: response.data.message }, { status: 400 });
+            return setCorsHeaders(errorResponse, origin);
         }
 
     } catch (error: any) {
         console.error("PayTech Error:", error.response?.data || error.message);
-        return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
+        const errorResponse = NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
+        return setCorsHeaders(errorResponse, origin);
     }
 }

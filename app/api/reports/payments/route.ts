@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/reports/payments:
  *   get:
@@ -19,9 +19,15 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
 export const runtime = "nodejs";
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function GET(req: NextRequest) {
+    const origin = req.headers.get('origin');
     try {
         const { searchParams } = new URL(req.url);
         const month = Number(searchParams.get("month"));
@@ -35,7 +41,8 @@ export async function GET(req: NextRequest) {
 
 
         if (Number.isNaN(month) || Number.isNaN(year)) {
-            return NextResponse.json({ message: "month et year requis" }, { status: 400 });
+            const response = NextResponse.json({ message: "month et year requis" }, { status: 400 });
+            return setCorsHeaders(response, origin);
         }
 
         // === Récupérer les paiements ===
@@ -255,12 +262,13 @@ export async function GET(req: NextRequest) {
                     doc.on("error", reject);
                 });
 
-                return new NextResponse(new Uint8Array(pdfBuffer), {
+                const pdfResponse = new NextResponse(new Uint8Array(pdfBuffer), {
                     headers: {
                         "Content-Type": "application/pdf",
                         "Content-Disposition": `inline; filename=rapport_paiements_${month}_${year}.pdf`,
                     },
                 });
+                return setCorsHeaders(pdfResponse, origin);
             } catch (pdfError) {
                 console.error("Erreur génération PDF:", pdfError);
                 throw pdfError;
@@ -303,24 +311,27 @@ export async function GET(req: NextRequest) {
 
 
             const buffer = await workbook.xlsx.writeBuffer();
-            return new NextResponse(new Uint8Array(buffer), {
+            const excelResponse = new NextResponse(new Uint8Array(buffer), {
                 headers: {
                     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "Content-Disposition": `attachment; filename=rapport_paiements_${month}_${year}.xlsx`,
                 },
             });
+            return setCorsHeaders(excelResponse, origin);
         }
 
-        return NextResponse.json({ error: "Format non supporté" }, { status: 400 });
+        const response = NextResponse.json({ error: "Format non supporté" }, { status: 400 });
+        return setCorsHeaders(response, origin);
 
     } catch (err: any) {
         console.error("REPORT ERROR:", err);
         console.error("Stack:", err?.stack);
-        return NextResponse.json({
+        const response = NextResponse.json({
             error: "Erreur génération rapport",
             message: err?.message || "Erreur inconnue",
             details: process.env.NODE_ENV === 'development' ? err?.stack : undefined
         }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 
 }

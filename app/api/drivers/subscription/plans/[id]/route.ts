@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 type Params = {
     params: Promise<{ id: string }>;
@@ -13,15 +14,21 @@ type Params = {
  *     summary: Supprimer une méthode de paiement
  *     tags: [CHAUFFEUR]
  */
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function DELETE(request: NextRequest, context: Params) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { id } = await context.params;
@@ -34,23 +41,26 @@ export async function DELETE(request: NextRequest, context: Params) {
         );
 
         if (result.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Méthode de paiement introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "Méthode de paiement supprimée avec succès"
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur DELETE payment method:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
@@ -62,14 +72,16 @@ export async function DELETE(request: NextRequest, context: Params) {
  *     tags: [CHAUFFEUR]
  */
 export async function PUT(request: NextRequest, context: Params) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user || user.role !== "driver") {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Non autorisé" },
                 { status: 403 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { id } = await context.params;
@@ -82,10 +94,11 @@ export async function PUT(request: NextRequest, context: Params) {
         );
 
         if (checkResult.rowCount === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, message: "Méthode de paiement introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         // Le trigger se charge de désactiver les autres méthodes
@@ -96,16 +109,18 @@ export async function PUT(request: NextRequest, context: Params) {
             [id, user.id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             message: "Méthode de paiement définie par défaut"
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error: any) {
         console.error("Erreur SET DEFAULT:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, message: error.message },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

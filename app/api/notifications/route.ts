@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * /api/notifications:
  *   get:
@@ -27,15 +27,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from "@/lib/auth";
 
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
+
 export async function POST(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { libelle, type, description, imageUrl, destinataireIds, sendToAll } =
@@ -92,7 +99,7 @@ export async function POST(request: NextRequest) {
 
             await query('COMMIT');
 
-            return NextResponse.json(
+            const response = NextResponse.json(
                 {
                     success: true,
                     message: 'Notification créée avec succès',
@@ -100,26 +107,30 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 201 }
             );
+            return setCorsHeaders(response, origin);
         } catch (error) {
             await query('ROLLBACK');
             throw error;
         }
     } catch (error) {
         console.error('Erreur création notification:', error);
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }
 
 
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
 
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Non autorisé' },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { searchParams } = new URL(request.url);
@@ -187,7 +198,7 @@ export async function GET(request: NextRequest) {
         const countResult = await query(countSql, params.slice(0, search ? 1 : 0));
         const total = Number(countResult.rows[0].total);
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             notifications: result.rows,
             pagination: {
                 page,
@@ -196,9 +207,11 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(total / limit)
             }
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
         console.error('Erreur récupération notifications:', error);
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        const response = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+        return setCorsHeaders(response, origin);
     }
 }

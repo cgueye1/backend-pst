@@ -1,30 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 /**
  * @swagger
  * /api/parents/trips/{tripId}/details:
  *   get:
- *     summary: Détails complets d’un trajet
- *     description: Permet à un parent de consulter les informations complètes d’un trajet
+ *     summary: Détails complets d'un trajet
+ *     description: Permet à un parent de consulter les informations complètes d'un trajet
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
  */
 
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ tripId: string }> }
 ) {
+    const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
         if (!user) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Non autorisé" },
                 { status: 401 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const { tripId } = await params;
@@ -84,10 +90,11 @@ export async function GET(
         );
 
         if (result.rows.length === 0) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { success: false, error: "Trajet introuvable" },
                 { status: 404 }
             );
+            return setCorsHeaders(response, origin);
         }
 
         const reviews = await query(
@@ -106,7 +113,7 @@ export async function GET(
             [result.rows[0].driver_id]
         );
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             data: {
                 ...result.rows[0],
@@ -114,11 +121,13 @@ export async function GET(
                 recent_reviews: reviews.rows,
             },
         });
+        return setCorsHeaders(response, origin);
     } catch (error) {
         console.error("Erreur récupération détails trajet:", error);
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
             { success: false, error: "Erreur serveur" },
             { status: 500 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }

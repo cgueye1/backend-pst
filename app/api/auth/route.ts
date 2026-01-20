@@ -19,6 +19,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import {getUserById, updateUser} from "@/services/userServices";
+import { setCorsHeaders, corsOptions } from "@/lib/cors";
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
+}
 
 export async function GET(req: NextRequest) {
     try {
@@ -51,7 +56,8 @@ export async function GET(req: NextRequest) {
         const [firstName, ...rest] = fullName.split(" ");
         const lastName = rest.join(" ");
 
-        return NextResponse.json({
+        const origin = req.headers.get('origin');
+        const response = NextResponse.json({
             id: user.id,
             firstName,
             lastName,
@@ -60,12 +66,15 @@ export async function GET(req: NextRequest) {
             phone: user.phone,
             email: user.email,
         });
+        return setCorsHeaders(response, origin);
 
     } catch (error) {
-        return NextResponse.json(
+        const origin = req.headers.get('origin');
+        const errorResponse = NextResponse.json(
             { message: "Token invalide" },
             { status: 401 }
         );
+        return setCorsHeaders(errorResponse, origin);
     }
 }
 
