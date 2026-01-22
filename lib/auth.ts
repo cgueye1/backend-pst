@@ -1,9 +1,19 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { query } from './db';
-import {NextRequest} from "next/server";
+import { NextRequest } from "next/server";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+// Validation du JWT_SECRET avec fallback en développement uniquement
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-secret-key-change-in-production' : '');
+if (!JWT_SECRET) {
+    console.error('❌ ERREUR CRITIQUE: JWT_SECRET non défini dans les variables d\'environnement');
+    console.error('   Veuillez définir JWT_SECRET dans votre fichier .env');
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET is required in production environment');
+    }
+    console.warn('⚠️  Utilisation d\'une clé de développement - NE PAS UTILISER EN PRODUCTION');
+}
+
 const JWT_EXPIRES_IN = '1d';
 const SALT_ROUNDS = 10;
 

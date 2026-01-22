@@ -19,9 +19,11 @@ import {
     getDriverById,
     updateDriver,
     deleteDriver,
+    type DriverUpdateData,
 } from "@/services/driverServices";
 import { authMiddleware } from "@/lib/auth";
 import { setCorsHeaders, corsOptions } from "@/lib/cors";
+import { updateDriverSchema, validateData } from "@/lib/validation";
 
 type Params = {
     params: Promise<{
@@ -57,7 +59,16 @@ export async function PUT(req: NextRequest, context: Params) {
         const { id } = await context.params;
         const body = await req.json();
 
-        const updated = await updateDriver(Number(id), body);
+        // Validation des données avec Zod
+        const validation = validateData(updateDriverSchema, body, origin);
+        if (!validation.success) {
+            return validation.response;
+        }
+
+        // Les données validées correspondent au type DriverUpdateData
+        // (sans status qui est géré par un endpoint séparé)
+        // Le type assertion est nécessaire car Zod infère un type légèrement différent
+        const updated = await updateDriver(Number(id), validation.data as Partial<DriverUpdateData>);
         const response = NextResponse.json(updated);
         return setCorsHeaders(response, origin);
     } catch (err) {

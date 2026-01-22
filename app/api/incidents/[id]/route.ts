@@ -46,8 +46,8 @@ export async function GET(
         const incident = result.rows[0];
         if (incident.documents) {
             try {
-                incident.documents = typeof incident.documents === 'string' 
-                    ? JSON.parse(incident.documents) 
+                incident.documents = typeof incident.documents === 'string'
+                    ? JSON.parse(incident.documents)
                     : incident.documents;
             } catch (e) {
                 console.error('Error parsing documents:', e);
@@ -91,7 +91,7 @@ export async function PUT(
         const formData = await req.formData();
         const type_de_problem = formData.get('type_de_problem') as string;
         const description = formData.get('description') as string;
-        
+
         // Récupérer l'user_id depuis l'incident existant pour préserver l'original
         const existingIncident = await query('SELECT user_id FROM incidents WHERE id = $1', [numericId]);
         if (existingIncident.rows.length === 0) {
@@ -113,8 +113,8 @@ export async function PUT(
         let existingDocuments: any[] = [];
         if (existingIncidentData.rows[0]?.documents) {
             try {
-                existingDocuments = typeof existingIncidentData.rows[0].documents === 'string' 
-                    ? JSON.parse(existingIncidentData.rows[0].documents) 
+                existingDocuments = typeof existingIncidentData.rows[0].documents === 'string'
+                    ? JSON.parse(existingIncidentData.rows[0].documents)
                     : existingIncidentData.rows[0].documents;
             } catch (e) {
                 console.error('Error parsing existing documents:', e);
@@ -234,8 +234,8 @@ export async function PUT(
         const incident = result.rows[0];
         if (incident.documents) {
             try {
-                incident.documents = typeof incident.documents === 'string' 
-                    ? JSON.parse(incident.documents) 
+                incident.documents = typeof incident.documents === 'string'
+                    ? JSON.parse(incident.documents)
                     : incident.documents;
             } catch (e) {
                 console.error('Error parsing documents:', e);
@@ -255,10 +255,10 @@ export async function PUT(
             name: error.name
         });
         const response = NextResponse.json(
-            { 
+            {
                 error: error.message || 'Failed to update incident',
                 details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-            }, 
+            },
             { status: 500 }
         );
         return setCorsHeaders(response, origin);
@@ -343,11 +343,30 @@ export async function PATCH(
                 RETURNING *
         `;
 
-        const result = await query(sql, [status, numericId]);
-
-        if (result.rows.length === 0) {
+        // Récupérer l'incident existant pour vérifier le changement de statut
+        const existingIncident = await query('SELECT * FROM incidents WHERE id = $1', [numericId]);
+        if (existingIncident.rows.length === 0) {
             const response = NextResponse.json({ error: 'Incident not found' }, { status: 404 });
             return setCorsHeaders(response, origin);
+        }
+        const oldStatus = existingIncident.rows[0].status;
+
+        const result = await query(sql, [status, numericId]);
+
+        // Notifier les admins si l'incident est résolu
+        if (status === 'Resolu' && oldStatus !== 'Resolu') {
+            try {
+                const { notifyAdmins, AdminNotificationTypes } = await import('@/services/notificationService');
+                const incident = result.rows[0];
+                await notifyAdmins(
+                    'Incident résolu',
+                    AdminNotificationTypes.INCIDENT_RESOLVED,
+                    `L'incident "${incident.type_de_problem}" (ID: ${numericId}) a été marqué comme résolu.`,
+                    undefined
+                );
+            } catch (notifError) {
+                console.error('Erreur notification admin:', notifError);
+            }
         }
 
         const response = NextResponse.json(result.rows[0]);

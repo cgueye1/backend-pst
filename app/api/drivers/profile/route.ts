@@ -195,18 +195,30 @@ export async function PUT(request: NextRequest) {
             );
 
             //   DRIVERS (photo_profil ici )
+            // Normaliser les valeurs : null, undefined, ou chaîne vide -> NULL
+            const normalizeToNull = (value: any): string | null => {
+                if (value === null || value === undefined || value === '') {
+                    return null;
+                }
+                return String(value).trim() || null;
+            };
+
+            const normalizedBrand = normalizeToNull(vehicle_brand);
+            const normalizedColor = normalizeToNull(vehicle_color);
+            const normalizedPhoto = photo_url !== null ? photo_url : null;
+
             await query(
                 `
                 UPDATE drivers
                 SET
-                    vehicle_brand = COALESCE($1, vehicle_brand),
-                    vehicle_color = COALESCE($2, vehicle_color),
+                    vehicle_brand = $1,
+                    vehicle_color = $2,
                     capacity = COALESCE($3, capacity),
                     photo_profil = COALESCE($4, photo_profil),
                     updated_at = NOW()
                 WHERE user_id = $5
                 `,
-                [vehicle_brand, vehicle_color, capacity, photo_url, user.id]
+                [normalizedBrand, normalizedColor, capacity, normalizedPhoto, user.id]
             );
 
             await query("COMMIT");

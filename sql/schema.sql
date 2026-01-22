@@ -89,11 +89,11 @@ CREATE TABLE drivers (
                          id SERIAL PRIMARY KEY,
                          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                          vehicle_brand TEXT ,         -- marque du véhicule
-                         vehicle_color TEXT NOT NULL,         -- couleur du véhicule
-                         vehicle_plate TEXT NOT NULL,         -- immatriculation du véhicule
-                         license_document TEXT NOT NULL,      -- chemin/URL de la CNI de conduire
-                         id_document TEXT NOT NULL,           -- chemin/URL du permis ou passeport
-                         vehicle_photo TEXT NOT NULL  ,       -- chemin/URL de la photo du véhicule
+                         vehicle_color TEXT,         -- couleur du véhicule (nullable pour permettre création sans documents)
+                         vehicle_plate TEXT,         -- immatriculation du véhicule (nullable pour permettre création sans documents)
+                         license_document TEXT,      -- chemin/URL de la CNI de conduire (nullable pour permettre création sans documents)
+                         id_document TEXT,           -- chemin/URL du permis ou passeport (nullable pour permettre création sans documents)
+                         vehicle_photo TEXT,       -- chemin/URL de la photo du véhicule (nullable pour permettre création sans documents)
                          created_at TIMESTAMP DEFAULT now()
 
 );
@@ -106,7 +106,7 @@ ALTER TABLE drivers
 ALTER TABLE drivers
     ADD COLUMN photo_profil TEXT  ;
 
-ALTER TABLE drivers ADD COLUMN capacity INTEGER DEFAULT 4 CHECK (capacity > 0 AND capacity <= 20);
+ALTER TABLE drivers ADD COLUMN capacity INTEGER DEFAULT 4 CHECK (capacity > 0 AND capacity <= 50);
  UPDATE drivers SET capacity = 4 WHERE capacity IS NULL;
 
 
@@ -145,7 +145,11 @@ ALTER TABLE trips
 
 ALTER TABLE trips
     ADD COLUMN distance_km DECIMAL(6,2),
-    ADD COLUMN price INT;
+    ADD COLUMN price INT,
+    ADD COLUMN start_latitude DECIMAL(10,8),
+    ADD COLUMN start_longitude DECIMAL(11,8),
+    ADD COLUMN end_latitude DECIMAL(10,8),
+    ADD COLUMN end_longitude DECIMAL(11,8);
 
 
 CREATE TABLE trip_children (

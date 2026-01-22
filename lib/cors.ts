@@ -16,10 +16,24 @@ export function setCorsHeaders(response: NextResponse, origin: string | null): N
         'http://127.0.0.1:3000'
     ];
 
-    // En production, utiliser ALLOWED_ORIGINS si défini, sinon utiliser les origines par défaut + '*'
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? (process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [...defaultOrigins, '*'])
-        : [...defaultOrigins, '*'];
+    // En production, utiliser ALLOWED_ORIGINS si défini
+    let allowedOrigins: string[];
+    if (process.env.NODE_ENV === 'production') {
+        if (process.env.ALLOWED_ORIGINS) {
+            allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+            // Avertir si '*' est utilisé en production
+            if (allowedOrigins.includes('*')) {
+                console.warn('⚠️  ATTENTION: Wildcard "*" détecté dans ALLOWED_ORIGINS en production - ce n\'est pas recommandé pour la sécurité');
+            }
+        } else {
+            // En production sans ALLOWED_ORIGINS, utiliser les origines par défaut + avertissement
+            console.warn('⚠️  ALLOWED_ORIGINS non défini en production - utilisation des origines par défaut');
+            allowedOrigins = [...defaultOrigins];
+        }
+    } else {
+        // En développement, permettre localhost + '*'
+        allowedOrigins = [...defaultOrigins, '*'];
+    }
 
     // Si '*' est dans la liste ou si on est en dev, accepter toutes les origines
     if (allowedOrigins.includes('*') || process.env.NODE_ENV !== 'production') {

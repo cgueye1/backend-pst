@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import twilio from "twilio";
 import crypto from "crypto";
 import { query as dbQuery } from "../lib/db";
+import { notifyAdmins, AdminNotificationTypes } from "./notificationService";
 /*  CREATE  */
 // Génère un mot de passe par défaut selon le rôle, sinon aléatoire
 const generatePassword = (role?: string) => {
@@ -28,9 +29,40 @@ export const createUser = async (data: any) => {
         [data.name, data.email, hashedPassword, role, data.phone, data.address, status]
     );
 
-    // Si le rôle est driver, créer l'entrée associée
+    // Si le rôle est driver, créer l'entrée associée avec tous les champs NULL
     if (role === "driver") {
-        await dbQuery(`INSERT INTO drivers (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [res.rows[0].id]);
+        try {
+            await dbQuery(
+                `INSERT INTO drivers (user_id, vehicle_brand, vehicle_color, vehicle_plate, license_document, id_document, vehicle_photo) 
+                 VALUES ($1, NULL, NULL, NULL, NULL, NULL, NULL) 
+                 ON CONFLICT (user_id) DO NOTHING`,
+                [res.rows[0].id]
+            );
+        } catch (err: any) {
+            // Si erreur de contrainte NOT NULL, donner un message clair
+            if (err.message && err.message.includes('not-null constraint')) {
+                throw new Error(
+                    'La base de données nécessite une migration. ' +
+                    'Exécutez le script SQL: backend/sql/fix_driver_nullable.sql ' +
+                    'pour rendre les champs nullable. Erreur: ' + err.message
+                );
+            }
+            throw err;
+        }
+    }
+
+    // Notifier les admins si création d'un driver
+    if (role === "driver") {
+        try {
+            await notifyAdmins(
+                'Nouveau chauffeur créé',
+                AdminNotificationTypes.NEW_DRIVER_REGISTRATION,
+                `Un nouveau chauffeur a été créé par un admin : ${data.name} (${data.email}). Statut : En attente d'approbation.`,
+                undefined
+            );
+        } catch (notifError) {
+            console.error('Erreur notification admin:', notifError);
+        }
     }
 
     // On ne renvoie pas le hash ; on peut inclure le mot de passe généré si besoin de l'afficher côté front
@@ -105,9 +137,67 @@ export const updateUser = async (id: number, data: any) => {
 
     const updated = res.rows[0];
 
-    // Si changement vers driver, insérer une ligne drivers si manquante
+    // Notifier les admins des changements importants
+    // IMPORTANT: Comparer data.status (si fourni) avec existing.status AVANT la mise à jour
+    try {
+        // Si data.status est fourni, comparer avec existing.status
+        // Sinon, pas de changement de statut
+        if (data.status !== undefined && data.status !== null) {
+            const oldStatus = existing.status || 'active';
+            const newStatus = data.status || 'active';
+
+            console.log('🔍 DEBUG updateUser - Vérification changement de statut:', {
+                'oldStatus (existing)': oldStatus,
+                'newStatus (data.status)': newStatus,
+                'status changed': oldStatus !== newStatus,
+                'data.status provided': true
+            });
+
+            // Vérifier si le statut a vraiment changé
+            if (oldStatus !== newStatus) {
+                console.log(`📢 Changement de statut détecté: "${oldStatus}" → "${newStatus}"`);
+                console.log(`📤 Appel de notifyAdmins...`);
+
+                await notifyAdmins(
+                    'Changement de statut utilisateur',
+                    AdminNotificationTypes.USER_STATUS_CHANGE,
+                    `Le statut de l'utilisateur ${updated.name} (${updated.email}) a été changé de "${oldStatus}" à "${newStatus}".`,
+                    undefined
+                );
+
+                console.log(`✅ Notification envoyée avec succès pour changement de statut`);
+            } else {
+                console.log(`ℹ️ Pas de changement de statut: "${oldStatus}" = "${newStatus}"`);
+            }
+        } else {
+            console.log(`ℹ️ Pas de changement de statut: data.status n'est pas fourni`);
+        }
+    } catch (notifError) {
+        console.error('❌ Erreur notification admin:', notifError);
+        console.error('Stack trace:', (notifError as Error).stack);
+        // Ne pas faire échouer la mise à jour si la notification échoue
+    }
+
+    // Si changement vers driver, insérer une ligne drivers si manquante avec tous les champs NULL
     if (updated.role === "driver") {
-        await dbQuery(`INSERT INTO drivers (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [id]);
+        try {
+            await dbQuery(
+                `INSERT INTO drivers (user_id, vehicle_brand, vehicle_color, vehicle_plate, license_document, id_document, vehicle_photo) 
+                 VALUES ($1, NULL, NULL, NULL, NULL, NULL, NULL) 
+                 ON CONFLICT (user_id) DO NOTHING`,
+                [id]
+            );
+        } catch (err: any) {
+            // Si erreur de contrainte NOT NULL, donner un message clair
+            if (err.message && err.message.includes('not-null constraint')) {
+                throw new Error(
+                    'La base de données nécessite une migration. ' +
+                    'Exécutez le script SQL: backend/sql/fix_driver_nullable.sql ' +
+                    'pour rendre les champs nullable. Erreur: ' + err.message
+                );
+            }
+            throw err;
+        }
     }
     // Si changement vers parent, rien à insérer (pas de table parent dédiée)
 
@@ -116,7 +206,25 @@ export const updateUser = async (id: number, data: any) => {
 
 /*  DELETE  */
 export const deleteUser = async (id: number) => {
+    // Récupérer les infos de l'utilisateur avant suppression
+    const user = await getUserById(id);
+
     await query(`DELETE FROM users WHERE id=$1`, [id]);
+
+    // Notifier les admins
+    if (user) {
+        try {
+            await notifyAdmins(
+                'Utilisateur supprimé',
+                AdminNotificationTypes.USER_DELETED,
+                `L'utilisateur ${user.name} (${user.email}) - ${user.role} a été supprimé.`,
+                undefined
+            );
+        } catch (notifError) {
+            console.error('Erreur notification admin:', notifError);
+        }
+    }
+
     return true;
 };
 
@@ -139,15 +247,24 @@ export const createPasswordResetCode = async (userId: number) => {
 
 // --- Email ---
 
-const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587, // 587 pour TLS, 465 pour SSL
-    secure: false, // true si port 465
+// Configuration email avec support des variables d'environnement
+// ⚠️ IMPORTANT: Déplacer les credentials vers .env en production
+const emailConfig = {
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.EMAIL_PORT || "587"),
+    secure: process.env.EMAIL_SECURE === "true",
     auth: {
-        user: "mameabydrame3@gmail.com",
-        pass: "qnrjhdqgncwtkbhg", // ton mot de passe d'application
+        user: process.env.EMAIL_USER || "mameabydrame3@gmail.com",
+        pass: process.env.EMAIL_PASSWORD || "qnrjhdqgncwtkbhg", // ⚠️ À déplacer vers .env
     },
-});
+};
+
+// Avertissement si on utilise encore les valeurs en dur (dev uniquement)
+if (process.env.NODE_ENV === 'development' && !process.env.EMAIL_PASSWORD) {
+    console.warn('⚠️  EMAIL_PASSWORD non défini dans .env - utilisation de la valeur par défaut (déconseillé en production)');
+}
+
+const transporter = nodemailer.createTransport(emailConfig);
 
 export const sendCodeByEmail = async (email: string, code: string) => {
     try {

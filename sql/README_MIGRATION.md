@@ -1,71 +1,47 @@
-# Migration SQL - Ajout de la colonne schedule et status
+# Migration : Rendre les champs drivers nullable
 
-Pour ajouter les colonnes `schedule` (horaires par jour) et `status` à la table `schools`, exécutez le script SQL suivant dans votre base de données PostgreSQL :
+## Problème
+L'erreur `null value in column "vehicle_color" of relation "drivers" violates not-null constraint` indique que la base de données a encore des contraintes NOT NULL sur les champs du driver.
+
+## Solution
+Exécutez le script SQL suivant dans votre base de données PostgreSQL.
+
+## Méthode 1 : Via psql (recommandé)
+
+```bash
+psql -U votre_utilisateur -d votre_base_de_donnees -f backend/sql/fix_driver_nullable.sql
+```
+
+## Méthode 2 : Via pgAdmin ou autre outil SQL
+
+1. Ouvrez votre outil de gestion de base de données (pgAdmin, DBeaver, etc.)
+2. Connectez-vous à votre base de données
+3. Ouvrez le fichier `backend/sql/fix_driver_nullable.sql`
+4. Exécutez le script
+
+## Méthode 3 : Via ligne de commande SQL directe
 
 ```sql
--- Add schedule column to schools table to store daily schedules as JSON
-ALTER TABLE schools 
-ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT '[
-  {"day": "Lundi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Mardi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Mercredi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Jeudi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Vendredi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Samedi", "open": false, "openTime": "00:00", "closeTime": "00:00"},
-  {"day": "Dimanche", "open": false, "openTime": "00:00", "closeTime": "00:00"}
-]'::jsonb;
-
--- Add status column if not exists
-ALTER TABLE schools 
-ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Actif' 
-CHECK (status IN ('Actif', 'Inactif'));
-
--- Update existing schools to have default schedule and status
-UPDATE schools 
-SET schedule = '[
-  {"day": "Lundi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Mardi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Mercredi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Jeudi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Vendredi", "open": true, "openTime": "08:00", "closeTime": "18:00"},
-  {"day": "Samedi", "open": false, "openTime": "00:00", "closeTime": "00:00"},
-  {"day": "Dimanche", "open": false, "openTime": "00:00", "closeTime": "00:00"}
-]'::jsonb
-WHERE schedule IS NULL;
-
-UPDATE schools SET status = 'Actif' WHERE status IS NULL;
+ALTER TABLE drivers 
+    ALTER COLUMN license_document DROP NOT NULL,
+    ALTER COLUMN id_document DROP NOT NULL,
+    ALTER COLUMN vehicle_photo DROP NOT NULL,
+    ALTER COLUMN vehicle_color DROP NOT NULL,
+    ALTER COLUMN vehicle_plate DROP NOT NULL;
 ```
-
-## Comment exécuter
-
-### Option 1 : Via psql (ligne de commande)
-```bash
-psql -U votre_utilisateur -d votre_base_de_donnees -f backend/sql/systemeSMS.sql
-```
-
-### Option 2 : Via un client PostgreSQL (pgAdmin, DBeaver, etc.)
-1. Ouvrez votre client PostgreSQL
-2. Connectez-vous à votre base de données
-3. Exécutez le contenu du fichier `backend/sql/systemeSMS.sql`
-
-### Option 3 : Via psql interactif
-```bash
-psql -U votre_utilisateur -d votre_base_de_donnees
-```
-Puis copiez-collez les commandes SQL ci-dessus.
 
 ## Vérification
 
-Après l'exécution, vérifiez que les colonnes ont été ajoutées :
+Après avoir exécuté le script, vous pouvez vérifier avec :
+
 ```sql
-\d schools
+SELECT column_name, is_nullable 
+FROM information_schema.columns 
+WHERE table_name = 'drivers' 
+AND column_name IN ('vehicle_color', 'vehicle_plate', 'license_document', 'id_document', 'vehicle_photo');
 ```
 
-Vous devriez voir les colonnes `schedule` (type jsonb) et `status` (type varchar(20)).
+Tous les champs doivent avoir `is_nullable = 'YES'`.
 
-## Fonctionnalités
-
-Une fois cette migration effectuée :
-- ✅ Les horaires peuvent être configurés par jour (Lundi à Dimanche)
-- ✅ Les mêmes horaires sont visibles dans la création, modification et détails
-- ✅ Le changement de statut des écoles fonctionnera correctement
+## Important
+⚠️ **Cette migration est nécessaire pour que le code fonctionne correctement.** Sans elle, vous continuerez à avoir l'erreur 500 lors de la création ou modification d'utilisateurs avec le rôle driver.

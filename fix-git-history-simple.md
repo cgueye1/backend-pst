@@ -55,3 +55,4 @@ git push origin main --force
 Si vous préférez ne pas modifier l'historique, vous pouvez autoriser le secret via le lien GitHub :
 https://github.com/cgueye1/backend-pst/security/secret-scanning/unblock-secret/38XYojRHfIATJ0KzkdIENXD8uNV
 
+

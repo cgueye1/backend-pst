@@ -10,15 +10,14 @@
  *     tags: [ADMIN]
 
  */
- 
+
 import { createUser, getAllUsers } from "@/services/userServices";
 import { authMiddleware } from "@/lib/auth";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { createUserSchema, validateData } from '@/lib/validation';
 
-export async function OPTIONS(req: NextRequest) {
-    return corsOptions(req);
 }
 
 export async function GET(req: NextRequest) {
@@ -45,12 +44,47 @@ export async function POST(req: NextRequest) {
         authMiddleware(req);
 
         const body = await req.json();
-        const user = await createUser(body);
 
-        const response = NextResponse.json(user);
+        // Validation des données avec Zod
+        const validation = validateData(createUserSchema, body, origin);
+        if (!validation.success) {
+            return validation.response;
+        }
+
+        const user = await createUser(validation.data);
+
+        const response = NextResponse.json({
+            success: true,
+            ...user
+        });
         return setCorsHeaders(response, origin);
-    } catch (err) {
-        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+    } catch (err: any) {
+        // Gestion d'erreurs améliorée pour le frontend
+        let errorMessage = "Erreur lors de la création de l'utilisateur";
+        let userMessage = errorMessage;
+
+        if (err.message) {
+            errorMessage = err.message;
+            userMessage = err.message;
+
+            // Messages spécifiques pour les erreurs courantes
+            if (err.message.includes('duplicate key') || err.message.includes('unique constraint')) {
+                if (err.message.includes('email')) {
+                    userMessage = "Cet email est déjà utilisé";
+                } else {
+                    userMessage = "Un utilisateur avec ces informations existe déjà";
+                }
+            } else if (err.message.includes('not-null constraint')) {
+                userMessage = "Des champs requis sont manquants";
+            }
+        }
+
+        const response = NextResponse.json({
+            success: false,
+            error: errorMessage,
+            message: userMessage,
+            userMessage: userMessage // Pour compatibilité avec le frontend
+        }, { status: 500 });
         return setCorsHeaders(response, origin);
     }
 }

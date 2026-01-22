@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
+import fs from 'fs';
 import { join } from 'path';
 
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
@@ -20,13 +21,19 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         const filename = `${Date.now()}-${file.name}`;
-        const path = join(process.cwd(), 'public', 'uploads', filename);
-
-        await writeFile(path, buffer);
+        const uploadDir = join(process.cwd(), 'uploads', 'notifications');
+        
+        // Créer le dossier s'il n'existe pas
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        const filePath = join(uploadDir, filename);
+        await writeFile(filePath, buffer);
 
         return NextResponse.json({
             success: true,
-            url: `/uploads/${filename}`
+            url: `/uploads/notifications/${filename}`
         });
     } catch (error) {
         console.error('Upload error:', error);

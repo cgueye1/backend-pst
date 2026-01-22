@@ -28,15 +28,17 @@ export async function GET(request: NextRequest) {
             return setCorsHeaders(response, origin);
         }
 
-        console.log(' Cron job - Vérification des trajets à rappeler...');
+        console.log('🔄 Cron job - Vérification des trajets à rappeler...');
 
-        // 1. Rappels à envoyer (par exemple 2 jours avant le départ)
+        // 1. Rappels à envoyer : trajets qui partent dans 2 jours (envoyer le rappel aujourd'hui)
+        // On cherche les trajets dont le départ est dans 2 jours ET qui n'ont pas encore reçu de rappel
         const remindersResult = await query(`
-            SELECT 
+            SELECT DISTINCT
                 t.id as trip_id,
                 t.departure_time,
                 t.start_point,
                 t.end_point,
+                t.driver_id,
                 u.id as parent_id,
                 u.name,
                 u.email,
@@ -45,49 +47,71 @@ export async function GET(request: NextRequest) {
             JOIN trip_children tc ON t.id = tc.trip_id
             JOIN children c ON tc.child_id = c.id
             JOIN users u ON c.parent_id = u.id
-            LEFT JOIN notifications n 
-                ON n.type = 'trip_reminder' 
-                AND n.emetteur_id = t.driver_id 
-                AND n.send_at::DATE = (t.departure_time - INTERVAL '2 days')::DATE
-                AND n.sent = false
-            WHERE t.departure_time::DATE > CURRENT_DATE
-              AND n.id IS NULL
+            WHERE t.departure_time::DATE = CURRENT_DATE + INTERVAL '2 days'
+              AND t.status IN ('pending', 'in_progress')
+              AND NOT EXISTS (
+                  -- Vérifier qu'aucune notification de rappel n'a déjà été envoyée pour ce trajet et ce parent
+                  SELECT 1 
+                  FROM notifications n
+                  JOIN notification_destinataires nd ON nd.notification_id = n.id
+                  WHERE n.type = 'trip_reminder'
+                    AND n.description LIKE '%' || t.id || '%'
+                    AND nd.destinataire_id = u.id
+                    AND n.date_creation::DATE = CURRENT_DATE
+              )
         `);
 
-        console.log(`📧 ${remindersResult.rowCount} trajets à rappeler trouvés`);
+        console.log(`📧 ${remindersResult.rowCount} trajets à rappeler trouvés (départ dans 2 jours)`);
+
+        let notificationsSent = 0;
 
         for (const trip of remindersResult.rows) {
-            const sendAt = new Date(trip.departure_time);
-            sendAt.setDate(sendAt.getDate() - 2); // 2 jours avant le trajet
+            try {
+                // Formater la date de départ
+                const departureDate = new Date(trip.departure_time);
+                const formattedDate = departureDate.toLocaleDateString('fr-FR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
 
-            // Créer la notification
-            const notifResult = await query(
-                `INSERT INTO notifications (libelle, type, description, emetteur_id, send_at)
-                 VALUES ($1, $2, $3, $4, $5)
-                 RETURNING id`,
-                [
-                    'Rappel trajet à venir',
-                    'trip_reminder',
-                    `Rappel : un trajet est prévu le ${trip.departure_time.toLocaleString()} de ${trip.start_point} à ${trip.end_point}.`,
-                    trip.parent_id, // émetteur = parent ou driver
-                    sendAt
-                ]
-            );
+                // Créer la notification (envoyée immédiatement)
+                const notifResult = await query(
+                    `INSERT INTO notifications (libelle, type, description, emetteur_id)
+                     VALUES ($1, $2, $3, $4)
+                     RETURNING id`,
+                    [
+                        'Rappel trajet à venir',
+                        'trip_reminder',
+                        `Rappel : un trajet est prévu le ${formattedDate} de ${trip.start_point} à ${trip.end_point}. [Trip ID: ${trip.trip_id}]`,
+                        trip.driver_id || trip.parent_id // émetteur = driver si disponible, sinon parent
+                    ]
+                );
 
-            // Associer le parent destinataire
-            await query(
-                `INSERT INTO notification_destinataires (notification_id, destinataire_id)
-                 VALUES ($1, $2)`,
-                [notifResult.rows[0].id, trip.parent_id]
-            );
+                // Associer le parent destinataire
+                await query(
+                    `INSERT INTO notification_destinataires (notification_id, destinataire_id)
+                     VALUES ($1, $2)`,
+                    [notifResult.rows[0].id, trip.parent_id]
+                );
 
-            console.log(` Rappel créé pour ${trip.name} (trip_id=${trip.trip_id})`);
+                notificationsSent++;
+                console.log(`✅ Rappel envoyé à ${trip.name} (${trip.email}) pour le trajet #${trip.trip_id}`);
+            } catch (error: any) {
+                console.error(`❌ Erreur lors de l'envoi du rappel pour trip_id=${trip.trip_id}:`, error);
+                // Continuer avec les autres trajets même en cas d'erreur
+            }
         }
 
         const response = NextResponse.json({
             success: true,
-            message: "Rappels des trajets créés avec succès",
-            count: remindersResult.rowCount
+            message: "Rappels des trajets envoyés avec succès",
+            data: {
+                trips_found: remindersResult.rowCount,
+                notifications_sent: notificationsSent
+            }
         });
         return setCorsHeaders(response, origin);
 

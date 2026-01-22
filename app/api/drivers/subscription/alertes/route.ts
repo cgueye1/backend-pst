@@ -16,12 +16,24 @@ export async function OPTIONS(req: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         // Sécurité : Vérifier que la requête vient d'un cron autorisé
+        // Supporte deux méthodes : header Authorization OU query parameter cron_secret
         const authHeader = request.headers.get('authorization');
+        const searchParams = request.nextUrl.searchParams;
+        const cronSecretParam = searchParams.get('cron_secret');
+        
         const cronSecret = process.env.CRON_SECRET || 'your-secret-key';
 
-        if (authHeader !== `Bearer ${cronSecret}`) {
+        // Vérifier soit le header Authorization, soit le query parameter
+        const isValid = 
+            authHeader === `Bearer ${cronSecret}` || 
+            cronSecretParam === cronSecret;
+
+        if (!isValid) {
             return NextResponse.json(
-                { success: false, message: "Non autorisé" },
+                { 
+                    success: false, 
+                    message: "Non autorisé. Fournissez 'Authorization: Bearer {secret}' header ou '?cron_secret={secret}' query parameter." 
+                },
                 { status: 401 }
             );
         }

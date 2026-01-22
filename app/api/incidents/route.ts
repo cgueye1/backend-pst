@@ -177,6 +177,27 @@ export async function POST(req: NextRequest) {
             [type_de_problem, description, JSON.stringify(documents), user.id]
         );
 
+        // Notifier les admins du nouvel incident
+        try {
+            const { notifyAdmins, AdminNotificationTypes } = await import('@/services/notificationService');
+            const notificationType = type_de_problem.toLowerCase().includes('urgent') || 
+                                   type_de_problem.toLowerCase().includes('critique')
+                ? AdminNotificationTypes.CRITICAL_INCIDENT
+                : AdminNotificationTypes.NEW_INCIDENT;
+            
+            await notifyAdmins(
+                notificationType === AdminNotificationTypes.CRITICAL_INCIDENT 
+                    ? '⚠️ Incident critique signalé'
+                    : 'Nouvel incident signalé',
+                notificationType,
+                `Un incident a été signalé par ${user.name || user.email}.\nType : ${type_de_problem}\nDescription : ${description.substring(0, 200)}${description.length > 200 ? '...' : ''}`,
+                user.id
+            );
+        } catch (notifError) {
+            console.error('Erreur notification admin:', notifError);
+            // Ne pas faire échouer la création de l'incident
+        }
+
         const response = NextResponse.json(res.rows[0], { status: 201 });
         return setCorsHeaders(response, origin);
 

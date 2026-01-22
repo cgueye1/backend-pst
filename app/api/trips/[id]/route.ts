@@ -40,11 +40,15 @@ export async function GET(req: NextRequest, context: Params) {
             return setCorsHeaders(response, origin);
         }
 
-        // Requête SQL avec jointure sur driver et user
+        // Requête SQL avec jointure sur driver et user, incluant les coordonnées GPS
         const res = await query(
             `
       SELECT 
         t.*,
+        t.start_latitude,
+        t.start_longitude,
+        t.end_latitude,
+        t.end_longitude,
         d.id AS driver_id,
         d.user_id AS driver_user_id,
         u.name AS driver_name, 
