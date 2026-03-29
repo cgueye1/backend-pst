@@ -62,7 +62,7 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  */
 
 
-
+export const dynamic = 'force-dynamic';
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
