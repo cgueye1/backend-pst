@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 
 // Configuration du pool de connexions avec valeurs par défaut sûres
 // Ces valeurs peuvent être surchargées via les variables d'environnement
@@ -31,12 +32,20 @@ if (process.env.DATABASE_SSL !== undefined) {
 }
 
 // Validation de la connection string
+// Pendant `next build`, Next exécute le code des routes avec NODE_ENV=production sans accès
+// aux secrets runtime : on n'exige pas DATABASE_URL tant que NEXT_PHASE === phase-production-build.
+const isNextProductionBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
 if (!poolConfig.connectionString) {
     console.error('❌ ERREUR: DATABASE_URL non défini dans les variables d\'environnement');
-    if (process.env.NODE_ENV === 'production') {
+    const requireUrl =
+        process.env.NODE_ENV === 'production' && !isNextProductionBuild;
+    if (requireUrl) {
         throw new Error('DATABASE_URL is required');
     }
     console.warn('⚠️  DATABASE_URL manquant - certaines fonctionnalités ne fonctionneront pas');
+    // URL factice : le pool ne se connecte qu’à la première requête ; le build ne doit pas planter.
+    poolConfig.connectionString =
+        'postgresql://buildtime:buildtime@127.0.0.1:5432/buildtime';
 }
 
 export const db = new Pool(poolConfig);

@@ -14,6 +14,11 @@ COPY . .
 # Copier le script de correction du serveur
 COPY fix-server-hostname.js ./
 
+# next build exécute le code des routes (collecte des pages). Sans URL, la validation DB peut échouer.
+# La vraie DATABASE_URL doit être fournie au runtime (Dockploy / compose). Surcharge possible via build-arg.
+ARG DATABASE_URL_BUILD=postgresql://build:build@127.0.0.1:5432/build
+ENV DATABASE_URL=$DATABASE_URL_BUILD
+
 # Build de l'application Next.js (le script fix-server-hostname.js sera exécuté automatiquement)
 RUN npm run build && \
     echo "✅ Build completed. Checking for standalone output..." && \
