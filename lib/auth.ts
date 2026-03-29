@@ -1,10 +1,22 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { query } from './db';
 import { NextRequest } from "next/server";
 
+const isNextProductionBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
 // Validation du JWT_SECRET avec fallback en développement uniquement
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-secret-key-change-in-production' : '');
+// Pendant `next build`, NODE_ENV vaut production sans secrets : on utilise une valeur factice.
+let JWT_SECRET =
+    process.env.JWT_SECRET?.trim() ||
+    (process.env.NODE_ENV === 'development' ? 'dev-secret-key-change-in-production' : '');
+if (!JWT_SECRET && isNextProductionBuild) {
+    console.warn(
+        '⚠️ JWT_SECRET manquant pendant le build Next — valeur factice (définir JWT_SECRET au runtime).'
+    );
+    JWT_SECRET = 'buildtime-jwt-secret-placeholder-min-32-chars-change-at-runtime';
+}
 if (!JWT_SECRET) {
     console.error('❌ ERREUR CRITIQUE: JWT_SECRET non défini dans les variables d\'environnement');
     console.error('   Veuillez définir JWT_SECRET dans votre fichier .env');

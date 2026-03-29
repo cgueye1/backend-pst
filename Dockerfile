@@ -19,6 +19,9 @@ COPY fix-server-hostname.js ./
 ARG DATABASE_URL_BUILD=postgresql://build:build@127.0.0.1:5432/build
 ENV DATABASE_URL=$DATABASE_URL_BUILD
 
+ARG JWT_SECRET_BUILD=buildtime-jwt-secret-placeholder-change-at-runtime-min-32chars
+ENV JWT_SECRET=$JWT_SECRET_BUILD
+
 # Build de l'application Next.js (le script fix-server-hostname.js sera exécuté automatiquement)
 RUN npm run build && \
     echo "✅ Build completed. Checking for standalone output..." && \
