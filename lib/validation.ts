@@ -31,6 +31,16 @@ export const registerParentSchema = z.object({
 // Type inféré du schéma
 export type RegisterParentInput = z.infer<typeof registerParentSchema>;
 
+// Premier admin uniquement : voir POST /api/auth/bootstrap-admin + ADMIN_BOOTSTRAP_SECRET
+export const bootstrapAdminSchema = z.object({
+    name: z.string().min(1, "Le nom est requis").max(150, "Le nom est trop long"),
+    email: z.string().email("Format d'email invalide").min(1, "L'email est requis"),
+    password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères").max(100, "Le mot de passe est trop long"),
+    bootstrapSecret: z.string().min(1, "bootstrapSecret est requis"),
+});
+
+export type BootstrapAdminInput = z.infer<typeof bootstrapAdminSchema>;
+
 // Schéma pour créer un utilisateur (admin)
 export const createUserSchema = z.object({
     name: z.string().min(1, "Le nom est requis").max(150, "Le nom est trop long"),

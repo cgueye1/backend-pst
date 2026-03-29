@@ -124,7 +124,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const origin = req.headers.get('origin');
     try {
-        authMiddleware(req);
+        const caller = authMiddleware(req);
+        if (caller.role !== "admin") {
+            const response = NextResponse.json(
+                { error: "Accès refusé", message: "Seuls les administrateurs peuvent créer des utilisateurs." },
+                { status: 403 }
+            );
+            return setCorsHeaders(response, origin);
+        }
 
         const body = await req.json();
 
