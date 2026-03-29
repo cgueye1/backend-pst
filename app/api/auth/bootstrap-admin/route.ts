@@ -1,3 +1,80 @@
+/**
+ * @swagger
+ * /api/auth/bootstrap-admin:
+ *   post:
+ *     summary: Créer le premier administrateur (bootstrap)
+ *     description: |
+ *       Crée le tout premier compte avec le rôle `admin` lorsqu'aucun administrateur n'existe en base.
+ *       Nécessite la variable d'environnement serveur `ADMIN_BOOTSTRAP_SECRET` ; le client envoie la même valeur dans `bootstrapSecret`.
+ *       Après le premier admin, cet endpoint renvoie 403 — utiliser POST /api/users avec un token admin.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - bootstrapSecret
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Admin principal"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "admin@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe (min. 8 caractères)
+ *                 example: "MotDePasseSolide123"
+ *               bootstrapSecret:
+ *                 type: string
+ *                 description: Doit correspondre à ADMIN_BOOTSTRAP_SECRET sur le serveur
+ *                 example: "votre-secret-long-genere-aleatoirement"
+ *     responses:
+ *       200:
+ *         description: Compte administrateur créé
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                   example: "admin"
+ *                 status:
+ *                   type: string
+ *                 created_at:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Données invalides (validation Zod)
+ *       403:
+ *         description: Secret invalide ou un administrateur existe déjà
+ *       409:
+ *         description: Email déjà utilisé
+ *       500:
+ *         description: Erreur serveur
+ *       503:
+ *         description: Bootstrap désactivé (ADMIN_BOOTSTRAP_SECRET non configuré)
+ */
+
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth";
@@ -20,10 +97,6 @@ export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
 
-/**
- * Crée le tout premier compte administrateur (aucun user avec role=admin en base).
- * Protégé par la variable d'environnement ADMIN_BOOTSTRAP_SECRET (à retirer ou changer après usage).
- */
 export async function POST(req: NextRequest) {
     const origin = req.headers.get("origin");
     try {
