@@ -25,7 +25,11 @@ export const registerParentSchema = z.object({
     email: z.string().email("Format d'email invalide").min(1, "L'email est requis"),
     phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Numéro de téléphone invalide").optional().nullable(),
     password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères").max(100, "Le mot de passe est trop long"),
+    address: z.string().max(255, "L'adresse est trop longue").optional().nullable(),
 });
+
+// Type inféré du schéma
+export type RegisterParentInput = z.infer<typeof registerParentSchema>;
 
 // Schéma pour créer un utilisateur (admin)
 export const createUserSchema = z.object({

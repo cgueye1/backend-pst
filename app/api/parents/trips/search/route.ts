@@ -2,9 +2,59 @@
  * @swagger
  * /api/parents/trips/search:
  *   get:
- *     summary: Rechercher des trajets optimisés (domicile → école) Avec calcul de distance réelle via OpenStreetMap
- *     tags: [Parents]
+ *     summary: Rechercher des trajets
+ *     description: Recherche des trajets disponibles selon des critères (point de départ, destination, date, etc.).
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: start_point
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Point de départ
+ *       - in: query
+ *         name: end_point
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Point d'arrivée
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date du trajet
+ *       - in: query
+ *         name: school_id
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: school_id
+ *       - in: query
+ *         name: available_seats
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Nombre de places disponibles minimum
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
@@ -171,58 +221,33 @@ export async function GET(req: NextRequest) {
             SELECT
                 t.*,
                 d.status as driver_verification_status,
-                u.first_name as driver_first_name,
-                u.last_name as driver_last_name,
+                d.vehicle_brand,
+                d.vehicle_color,
+                d.vehicle_plate,
+                u.name as driver_name,
                 u.phone as driver_phone,
-                b.registration_number as bus_number,
-                b.model as bus_model,
                 s.name as school_name,
                 s.address as school_address,
-                s.latitude as school_lat,
-                s.longitude as school_lng,
                 COALESCE(booked.count, 0) as booked_seats,
                 (t.capacity_max - COALESCE(booked.count, 0)) as available_seats,
                 COALESCE(AVG(e.rating), 0) as driver_rating,
                 COUNT(DISTINCT e.id) as total_reviews,
                 
-                -- Premier arrêt du trajet
-                (
-                    SELECT json_build_object(
-                        'stop_id', s2.id,
-                        'stop_name', s2.name,
-                        'latitude', s2.latitude,
-                        'longitude', s2.longitude,
-                        'address', s2.address,
-                        'sequence', rs.sequence_order
-                    )
-                    FROM route_stops rs
-                    INNER JOIN stops s2 ON rs.stop_id = s2.id
-                    WHERE rs.route_id = t.route_id
-                    ORDER BY rs.sequence_order ASC
-                    LIMIT 1
-                ) as first_stop,
-                
-                -- Tous les arrêts
-                (
-                    SELECT json_agg(
+                -- Utiliser les coordonnées du trajet comme premier arrêt (si disponibles)
+                CASE 
+                    WHEN t.start_latitude IS NOT NULL AND t.start_longitude IS NOT NULL THEN
                         json_build_object(
-                            'stop_id', s3.id,
-                            'stop_name', s3.name,
-                            'latitude', s3.latitude,
-                            'longitude', s3.longitude,
-                            'address', s3.address,
-                            'sequence', rs2.sequence_order
-                        ) ORDER BY rs2.sequence_order
-                    )
-                    FROM route_stops rs2
-                    INNER JOIN stops s3 ON rs2.stop_id = s3.id
-                    WHERE rs2.route_id = t.route_id
-                ) as all_stops
+                            'latitude', t.start_latitude,
+                            'longitude', t.start_longitude,
+                            'address', t.start_point,
+                            'name', t.start_point
+                        )
+                    ELSE NULL
+                END as first_stop
 
             FROM trips t
             INNER JOIN drivers d ON t.driver_id = d.id
             INNER JOIN users u ON d.user_id = u.id
-            LEFT JOIN buses b ON t.bus_id = b.id
             LEFT JOIN schools s ON t.school_id = s.id
             LEFT JOIN evaluations e ON d.id = e.driver_id
             LEFT JOIN (
@@ -231,7 +256,7 @@ export async function GET(req: NextRequest) {
                 GROUP BY trip_id
             ) booked ON t.id = booked.trip_id
             ${whereClause}
-            GROUP BY t.id, d.id, d.status, u.id, b.id, s.id, booked.count, t.route_id
+            GROUP BY t.id, d.id, d.status, d.vehicle_brand, d.vehicle_color, d.vehicle_plate, u.id, s.id, booked.count
             HAVING (t.capacity_max - COALESCE(booked.count, 0)) >= ${available_seats_min}
         `;
 
@@ -242,16 +267,30 @@ export async function GET(req: NextRequest) {
         // Calculer les distances réelles avec OSRM pour chaque trajet
         const optimizedTripsPromises = tripsResult.rows.map(async (trip: any) => {
             const firstStop = trip.first_stop;
-            const schoolLat = parseFloat(trip.school_lat);
-            const schoolLng = parseFloat(trip.school_lng);
+            // Utiliser les coordonnées de fin du trajet comme coordonnées de l'école
+            const schoolLat = parseFloat(trip.end_latitude || 0);
+            const schoolLng = parseFloat(trip.end_longitude || 0);
 
-            if (!firstStop) {
-                console.warn(`⚠️ Aucun arrêt trouvé pour le trajet ${trip.id}`);
+            // Si pas de premier arrêt, utiliser les coordonnées du trajet ou le point de départ
+            let firstStopLat: number;
+            let firstStopLng: number;
+            
+            if (firstStop && firstStop.latitude && firstStop.longitude) {
+                firstStopLat = parseFloat(firstStop.latitude);
+                firstStopLng = parseFloat(firstStop.longitude);
+            } else if (trip.start_latitude && trip.start_longitude) {
+                firstStopLat = parseFloat(trip.start_latitude);
+                firstStopLng = parseFloat(trip.start_longitude);
+            } else {
+                // Si pas de coordonnées, on ne peut pas calculer la distance
+                console.warn(`⚠️ Aucune coordonnée disponible pour le trajet ${trip.id}`);
                 return null;
             }
 
-            const firstStopLat = parseFloat(firstStop.latitude);
-            const firstStopLng = parseFloat(firstStop.longitude);
+            if (!schoolLat || !schoolLng || schoolLat === 0 || schoolLng === 0) {
+                console.warn(`⚠️ Coordonnées de l'école invalides pour le trajet ${trip.id}`);
+                return null;
+            }
 
             // 1. Distance domicile → premier arrêt (via OSRM)
             const homeToStopRoute = await getRouteInfo(
@@ -325,27 +364,28 @@ export async function GET(req: NextRequest) {
 
                 // Détails
                 driver: {
-                    first_name: trip.driver_first_name,
-                    last_name: trip.driver_last_name,
+                    name: trip.driver_name,
                     phone: trip.driver_phone,
                     verification_status: trip.driver_verification_status,
                     rating: parseFloat(trip.driver_rating).toFixed(1),
                     total_reviews: parseInt(trip.total_reviews)
                 },
-                bus: {
-                    registration: trip.bus_number,
-                    model: trip.bus_model,
+                vehicle: {
+                    brand: trip.vehicle_brand || null,
+                    color: trip.vehicle_color || null,
+                    plate: trip.vehicle_plate || null,
                     capacity: trip.capacity_max
                 },
                 school: {
                     name: trip.school_name,
                     address: trip.school_address,
-                    latitude: schoolLat,
-                    longitude: schoolLng
+                    latitude: schoolLat || null,
+                    longitude: schoolLng || null
                 },
                 route: {
                     first_stop: firstStop,
-                    all_stops: trip.all_stops || []
+                    start_point: trip.start_point,
+                    end_point: trip.end_point
                 }
             };
         });

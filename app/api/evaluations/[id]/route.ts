@@ -3,6 +3,56 @@
  * /api/evaluations/{id}:
  *   put:
  *     summary: Modifier un avis
+ *     description: Permet à un parent de modifier son évaluation. Seul le parent qui a créé l'évaluation peut la modifier.
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'évaluation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: Nouvelle note de 1 à 5
+ *                 example: 4
+ *               comment:
+ *                 type: string
+ *                 description: Nouveau commentaire (optionnel)
+ *                 example: "Très bon service"
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+
+/**
+ * @swagger
+ * /api/evaluations/{id}:
+ *   put:
+ *     summary: Modifier un avis
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []

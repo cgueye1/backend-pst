@@ -1,3 +1,20 @@
+/**
+ * @swagger
+ * /api/subscriptions:
+ *   get:
+ *     summary: Lister les abonnements actifs (admin)
+ *     description: Retourne la liste des abonnements actifs (admin uniquement).
+ *     tags: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des abonnements
+ *       403:
+ *         description: Accès refusé
+ *       500:
+ *         description: Erreur serveur
+ */
 import { query } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth";
 

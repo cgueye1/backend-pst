@@ -8,10 +8,25 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/parents/dashboard:
  *   get:
  *     summary: Tableau de bord parent
- *     tags: [Parents]
+ *     description: Récupère les statistiques du tableau de bord : trajets à venir, enfants, réservations récentes, etc.
+ *     tags: ["Parents"]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -59,8 +74,23 @@ export async function GET(req: NextRequest) {
     const stats = await query(`
       SELECT
         COUNT(DISTINCT c.id) AS total_children,
-        COUNT(DISTINCT t.id) FILTER (WHERE t.status = 'completed') AS completed_trips,
-        COUNT(DISTINCT t.id) FILTER (WHERE t.status = 'pending') AS upcoming_trips,
+        -- Utiliser le statut global pour les comptages
+        COUNT(DISTINCT t.id) FILTER (
+            WHERE CASE 
+                WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                    get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'completed'
+                ELSE
+                    t.status = 'completed'
+            END
+        ) AS completed_trips,
+        COUNT(DISTINCT t.id) FILTER (
+            WHERE CASE 
+                WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                    get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'pending'
+                ELSE
+                    t.status = 'pending'
+            END
+        ) AS upcoming_trips,
         COALESCE(SUM(p.amount), 0) AS total_spent
       FROM children c
       LEFT JOIN trip_children tc ON c.id = tc.child_id

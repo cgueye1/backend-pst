@@ -3,14 +3,71 @@
  * /api/schools:
  *   get:
  *     summary: Récupérer toutes les écoles
- *     tags: [ADMIN]
-
- *
+ *     description: Récupère la liste de toutes les écoles triées par nom.
+ *     tags: ["ADMIN"]
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
  *     summary: Créer une nouvelle école
- *     tags: [ADMIN]
-
+ *     description: Crée une nouvelle école avec logo et horaires. Utilise form-data pour l'upload du logo.
+ *     tags: ["ADMIN"]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "École ABC"
+ *               address:
+ *                 type: string
+ *                 example: "Dakar, Almadies"
+ *               opening_time:
+ *                 type: string
+ *                 description: Heure d'ouverture (HH:MM)
+ *                 example: "08:00"
+ *                 default: 08:00
+ *               closing_time:
+ *                 type: string
+ *                 description: Heure de fermeture (HH:MM)
+ *                 example: "18:00"
+ *                 default: 18:00
+ *               schedule:
+ *                 type: string
+ *                 description: Horaires hebdomadaires en JSON
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Logo de l'école (fichier image)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
 
 
 import { NextRequest, NextResponse } from 'next/server';

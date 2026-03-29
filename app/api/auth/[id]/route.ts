@@ -1,3 +1,101 @@
+/**
+ * @swagger
+ * /api/auth/{id}:
+ *   put:
+ *     summary: Mettre à jour un utilisateur
+ *     description: Met à jour les informations d'un utilisateur. Requiert un token Bearer valide. Seuls les champs fournis seront mis à jour.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'utilisateur
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Jean Dupont"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+221771234567"
+ *     responses:
+ *       200:
+ *         description: integer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 firstName:
+ *                   type: string
+ *                 lastName:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 phone:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *       400:
+ *         description: ID utilisateur invalide
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: ID utilisateur invalide
+ *                   example: "ID utilisateur invalide"
+ *       401:
+ *         description: No token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: No token
+ *                   example: "No token"
+ *       404:
+ *         description: Utilisateur introuvable
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: Utilisateur introuvable
+ *                   example: "Utilisateur introuvable"
+ *       500:
+ *         description: Update failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Update failed
+ *                   example: "Update failed"
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { getUserById, updateUser } from "@/services/userServices";
 import { verifyToken } from "@/lib/auth";

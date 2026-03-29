@@ -13,18 +13,113 @@ type ParamsPromise = { params: Promise<{ id: string }> };
  * @swagger
  * /api/users/{id}:
  *   get:
- *     summary: Récupérer un utilisateur par ID (admin uniquement)
- *     tags: [ADMIN]
-
-
+ *     summary: Récupérer un utilisateur par ID
+ *     description: Récupère les informations d'un utilisateur spécifique. Réservé aux administrateurs.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'utilisateur
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   put:
- *     summary: Mettre à jour un utilisateur (admin uniquement)
- *     tags: [ADMIN]
-
+ *     summary: Mettre à jour un utilisateur
+ *     description: Met à jour les informations d'un utilisateur. Réservé aux administrateurs.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'utilisateur
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Jean Dupont"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+221771234567"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Nouveau mot de passe
+ *               role:
+ *                 type: string
+ *                 enum: ["admin","parent","driver"]
+ *               address:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: ["active","inactive"]
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   delete:
- *     summary: Supprimer un utilisateur (admin uniquement)
- *     tags: [ADMIN]
-
+ *     summary: Supprimer un utilisateur
+ *     description: Supprime un utilisateur de la base de données. Réservé aux administrateurs.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'utilisateur
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 export async function OPTIONS(req: NextRequest) {

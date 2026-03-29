@@ -1,11 +1,77 @@
 /**
  * @swagger
  * /api/drivers/{id}/status:
-*   patch:
-    *     summary: Mettre à jour le statut d'un chauffeur (admin uniquement)
-*     tags: [ADMIN]
-
-*/
+ *   patch:
+ *     summary: Mettre à jour le statut d'un chauffeur (admin uniquement)
+ *     description: >
+ *       Permet à un administrateur de changer le statut d'un chauffeur.
+ *       Les valeurs acceptées sont "Approuvé" (ou "approved") et "Refusé" (ou "rejected").
+ *       Une notification est envoyée aux admins lors du changement de statut.
+ *     tags: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du chauffeur
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [Approuvé, approved, Refusé, rejected]
+ *                 description: Nouveau statut du chauffeur (accepte français ou anglais)
+ *                 example: "Approuvé"
+ *     responses:
+ *       200:
+ *         description: Statut mis à jour avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 user_id:
+ *                   type: integer
+ *                 status:
+ *                   type: string
+ *                   enum: [En attente, Approuvé, Refusé]
+ *       400:
+ *         description: Erreur de validation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid status. Must be 'Approuvé'/'approved' or 'Refusé'/'rejected'"
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé (admin uniquement)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Accès refusé"
+ *       500:
+ *         description: Erreur serveur
+ */
 
 import { NextRequest, NextResponse } from "next/server";
 import { updateDriverStatus } from "@/services/driverServices";
@@ -79,4 +145,3 @@ export async function PATCH(
         return setCorsHeaders(response, origin);
     }
 }
-

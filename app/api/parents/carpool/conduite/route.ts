@@ -2,17 +2,107 @@
  * @swagger
  * /api/parents/carpool/conduite:
  *   get:
- *     summary:  Récupérer les propositions d'échange
+ *     summary: Récupérer les propositions d'échange
+ *     description: Récupère les propositions d'échange de conduite pour un groupe
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+
+ *     parameters:
+ *       - in: query
+ *         name: group_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du groupe
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [sent, received, all]
+ *         description: Type de propositions (sent, received, all)
+ *     responses:
+ *       200:
+ *         description: Liste des propositions d'échange
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  *   post:
- *      summary: Proposer un échange
- *      tags: [Parents]
+ *     summary: Proposer un échange
+ *     description: Crée une nouvelle proposition d'échange de conduite
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - group_id
+ *               - original_date
+ *               - exchange_type
+ *             properties:
+ *               group_id:
+ *                 type: integer
+ *               calendar_id:
+ *                 type: integer
+ *               target_driver_id:
+ *                 type: integer
+ *               original_date:
+ *                 type: string
+ *                 format: date
+ *               proposed_date:
+ *                 type: string
+ *                 format: date
+ *               exchange_type:
+ *                 type: string
+ *                 enum: [swap, give, request]
+ *               message:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Proposition créée avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  *   put:
- *      summary: Répondre à une proposition
- *      tags: [Parents]
- *
+ *     summary: Répondre à une proposition
+ *     description: Accepte, refuse ou annule une proposition d'échange
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - exchange_id
+ *               - action
+ *             properties:
+ *               exchange_id:
+ *                 type: integer
+ *               action:
+ *                 type: string
+ *                 enum: [accept, decline, cancel]
+ *     responses:
+ *       200:
+ *         description: Réponse enregistrée avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -406,24 +496,87 @@ export async function PUT(req: NextRequest) {
         );
 
         if (action === 'accept' && exchange.calendar_id) {
-            if (exchange.exchange_type === 'swap' && exchange.proposed_date) {
-                await query(
-                    `
-                    UPDATE carpool_calendar 
-                    SET driver_id = $1, updated_at = NOW()
-                    WHERE id = $2
-                    `,
-                    [userId, exchange.calendar_id]
-                );
-            } else if (exchange.exchange_type === 'give') {
-                await query(
-                    `
-                    UPDATE carpool_calendar 
-                    SET driver_id = $1, updated_at = NOW()
-                    WHERE id = $2
-                    `,
-                    [exchange.requester_id, exchange.calendar_id]
-                );
+            // Récupérer la date du calendrier concerné
+            const calendarInfo = await query(
+                `SELECT date, group_id FROM carpool_calendar WHERE id = $1`,
+                [exchange.calendar_id]
+            );
+
+            if (calendarInfo.rowCount && calendarInfo.rowCount > 0) {
+                const calendarDate = calendarInfo.rows[0].date;
+                const calendarGroupId = calendarInfo.rows[0].group_id;
+
+                if (exchange.exchange_type === 'swap' && exchange.proposed_date) {
+                    // Vérifier si le parent acceptant est déjà assigné le jour proposé dans un autre groupe
+                    const conflictCheck = await query(
+                        `
+                        SELECT c.id, c.group_id, g.name as group_name
+                        FROM carpool_calendar c
+                        INNER JOIN carpool_groups g ON c.group_id = g.id
+                        WHERE c.driver_id = $1 
+                        AND c.date = $2 
+                        AND c.group_id != $3
+                        AND c.status != 'cancelled'
+                        `,
+                        [userId, exchange.proposed_date, calendarGroupId]
+                    );
+
+                    if (conflictCheck.rowCount && conflictCheck.rowCount > 0) {
+                        const conflict = conflictCheck.rows[0];
+                        const response = NextResponse.json(
+                            {
+                                success: false,
+                                error: `Vous êtes déjà assigné à conduire le ${exchange.proposed_date} dans le groupe "${conflict.group_name}". Vous ne pouvez pas accepter cet échange.`
+                            },
+                            { status: 400 }
+                        );
+                        return setCorsHeaders(response, origin);
+                    }
+
+                    await query(
+                        `
+                        UPDATE carpool_calendar 
+                        SET driver_id = $1, updated_at = NOW()
+                        WHERE id = $2
+                        `,
+                        [userId, exchange.calendar_id]
+                    );
+                } else if (exchange.exchange_type === 'give') {
+                    // Vérifier si le demandeur est déjà assigné ce jour dans un autre groupe
+                    const conflictCheck = await query(
+                        `
+                        SELECT c.id, c.group_id, g.name as group_name
+                        FROM carpool_calendar c
+                        INNER JOIN carpool_groups g ON c.group_id = g.id
+                        WHERE c.driver_id = $1 
+                        AND c.date = $2 
+                        AND c.group_id != $3
+                        AND c.status != 'cancelled'
+                        `,
+                        [exchange.requester_id, calendarDate, calendarGroupId]
+                    );
+
+                    if (conflictCheck.rowCount && conflictCheck.rowCount > 0) {
+                        const conflict = conflictCheck.rows[0];
+                        const response = NextResponse.json(
+                            {
+                                success: false,
+                                error: `Le parent qui a demandé est déjà assigné à conduire le ${calendarDate} dans le groupe "${conflict.group_name}". L'échange ne peut pas être effectué.`
+                            },
+                            { status: 400 }
+                        );
+                        return setCorsHeaders(response, origin);
+                    }
+
+                    await query(
+                        `
+                        UPDATE carpool_calendar 
+                        SET driver_id = $1, updated_at = NOW()
+                        WHERE id = $2
+                        `,
+                        [exchange.requester_id, exchange.calendar_id]
+                    );
+                }
             }
         }
 

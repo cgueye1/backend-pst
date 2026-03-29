@@ -3,8 +3,100 @@
  * /api/auth/register-driver:
  *   post:
  *     summary: Inscription d'un chauffeur
+ *     description: Permet à un chauffeur de s'inscrire. Crée un compte utilisateur et un profil chauffeur. Accepte JSON ou form-data. Les documents (permis, carte d'identité, photo véhicule) sont optionnels.
  *     tags: [Auth]
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *                 description: Prénom du chauffeur
+ *                 example: "Amadou"
+ *               last_name:
+ *                 type: string
+ *                 description: Nom du chauffeur
+ *                 example: "Diallo"
+ *               email:
+ *                 type: string
+ *                 example: "driver@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+221771234567"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *               vehicle_brand:
+ *                 type: string
+ *                 example: "Toyota"
+ *               vehicle_color:
+ *                 type: string
+ *                 example: "Blanc"
+ *               vehicle_plate:
+ *                 type: string
+ *                 example: "ABC-123"
+ *               capacity:
+ *                 type: integer
+ *                 example: 4
+ *               license_document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Document de permis (form-data uniquement)
+ *               id_document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Carte d'identité (form-data uniquement)
+ *               vehicle_photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Photo du véhicule (form-data uniquement)
+ *     responses:
+ *       200:
+ *         description: true
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: string
+ *                 message:
+ *                   type: Inscription chauffeur réussie
+ *                   example: "Inscription chauffeur réussie"
+ *                 user:
+ *                   type: object
+ *                 driver:
+ *                   type: object
+ *       400:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: string
+ *                 error:
+ *                   type: Erreur de validation
+ *                   example: "Erreur de validation"
+ *       500:
+ *         description: Success
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: string
+ *                 error:
+ *                   type: Erreur lors de l'inscription
+ *                   example: "Erreur lors de l'inscription"
+ *                 message:
+ *                   type: string
+ *                   example: "string"
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,8 +111,8 @@ import { registerDriverSchema, validateData, validateFormData } from '@/lib/vali
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Dossier uploads
-const uploadDir = path.join(process.cwd(), "uploads/drivers");
+// Dossier uploads (servi via /api/uploads/{path})
+const uploadDir = path.join(process.cwd(), "uploads", "drivers");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 export async function OPTIONS(req: NextRequest) {

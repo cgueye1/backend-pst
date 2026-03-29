@@ -3,16 +3,139 @@
  * /api/schools/{id}:
  *   get:
  *     summary: Récupérer une école par son ID
- *     tags: [ADMIN]
+ *     description: Récupère les informations détaillées d'une école spécifique.
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'école
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   put:
- *     summary: Mettre à jour une école (inclus logo et horaires)
- *     tags: [ADMIN]
+ *     summary: Mettre à jour une école
+ *     description: Met à jour les informations d'une école (nom, adresse, horaires, logo). Utilise form-data.
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'école
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "École ABC"
+ *               address:
+ *                 type: string
+ *                 example: "Dakar, Almadies"
+ *               opening_time:
+ *                 type: string
+ *                 example: "08:00"
+ *               closing_time:
+ *                 type: string
+ *                 example: "18:00"
+ *               schedule:
+ *                 type: string
+ *                 description: Horaires en JSON
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Nouveau logo (fichier image)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   patch:
  *     summary: Mettre à jour le statut d'une école
- *     tags: [ADMIN]
+ *     description: Change le statut d'une école (Actif/Inactif).
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'école
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: ["Actif","Inactif"]
+ *                 example: "Actif"
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   delete:
  *     summary: Supprimer une école
- *     tags: [ADMIN]
+ *     description: Supprime une école et son logo associé.
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'école
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { NextRequest, NextResponse } from 'next/server';

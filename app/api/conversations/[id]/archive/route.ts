@@ -7,7 +7,41 @@ import { query } from "@/lib/db";
  * /api/conversations/{id}/archive:
  *   patch:
  *     summary: Archiver ou désarchiver une conversation
- *     tags: [Messagerie]
+ *     description: Change le statut d'archivage d'une conversation.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la conversation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               archived:
+ *                 type: boolean
+ *                 description: true pour archiver, false pour désarchiver
+ *                 default: true
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 type Params = {
     params: Promise<{ id: string }>;

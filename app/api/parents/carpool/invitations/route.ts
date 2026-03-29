@@ -3,17 +3,93 @@
  * @swagger
  * /api/parents/carpool/invitations:
  *   get:
- *     summary:  Récupérer les invitations
+ *     summary: Récupérer les invitations
+ *     description: Récupère les invitations de covoiturage (reçues ou pour un groupe)
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+
+ *     parameters:
+ *       - in: query
+ *         name: group_id
+ *         schema:
+ *           type: integer
+ *         description: ID du groupe (pour voir les invitations du groupe)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [received]
+ *         description: Type de requête (received pour les invitations reçues)
+ *     responses:
+ *       200:
+ *         description: Liste des invitations
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
  *   post:
- *      summary: Inviter une famille
- *      tags: [Parents]
+ *     summary: Inviter une famille
+ *     description: Envoie une invitation à une famille pour rejoindre un groupe
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - group_id
+ *               - parent_email
+ *             properties:
+ *               group_id:
+ *                 type: integer
+ *               parent_email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       201:
+ *         description: Invitation envoyée avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Parent introuvable
  *   put:
- *      summary: Répondre à une invitation
- *      tags: [Parents]
- *
+ *     summary: Répondre à une invitation
+ *     description: Accepte ou refuse une invitation à rejoindre un groupe
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - invitation_id
+ *               - action
+ *             properties:
+ *               invitation_id:
+ *                 type: integer
+ *               action:
+ *                 type: string
+ *                 enum: [accept, decline]
+ *     responses:
+ *       200:
+ *         description: Réponse enregistrée avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: Invitation introuvable
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';

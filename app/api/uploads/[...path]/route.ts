@@ -1,3 +1,27 @@
+/**
+ * @swagger
+ * /api/uploads/{path}:
+ *   get:
+ *     summary: Servir un fichier uploadé
+ *     description: Retourne un fichier stocké dans le dossier uploads (images, pdf, etc.).
+ *     tags: [UPLOADS]
+ *     parameters:
+ *       - in: path
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Chemin du fichier (catch-all)
+ *     responses:
+ *       200:
+ *         description: Fichier binaire
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Fichier non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';

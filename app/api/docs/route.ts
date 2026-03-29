@@ -1,4 +1,15 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+/**
+ * @swagger
+ * /api/docs:
+ *   get:
+ *     summary: Swagger UI
+ *     description: Page HTML de documentation Swagger UI (charge `/api/swagger.json`).
+ *     tags: [DOCS]
+ *     responses:
+ *       200:
+ *         description: HTML Swagger UI
+ */
+import { NextRequest, NextResponse } from "next/server";
 import swaggerUi from "swagger-ui-dist";
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
 

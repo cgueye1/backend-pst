@@ -1,4 +1,31 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+/**
+ * @swagger
+ * /api/notifications/upload:
+ *   post:
+ *     summary: Upload fichier notification
+ *     description: Upload un fichier via `multipart/form-data` (champ `file`) et retourne une URL.
+ *     tags: [NOTIFICATIONS]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Fichier à uploader
+ *     responses:
+ *       200:
+ *         description: Upload réussi
+ *       400:
+ *         description: Fichier manquant
+ *       500:
+ *         description: Erreur serveur
+ */
+import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import fs from 'fs';
 import { join } from 'path';

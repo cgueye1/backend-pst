@@ -45,3 +45,21 @@ WHERE nd.destinataire_id = 1  -- Remplacez par l'ID de votre admin
   AND nd.lu = false
   AND n.statut = 'active';
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

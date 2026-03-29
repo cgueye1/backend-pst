@@ -3,19 +3,64 @@
  * /api/parents/children:
  *   get:
  *     summary: Récupérer tous les enfants du parent
- *     description: Retourne la liste de tous les enfants avec leurs horaires personnalisés
- *     tags: [Parents]
+ *     description: Retourne la liste de tous les enfants avec leurs horaires personnalisés.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
  *     summary: Ajouter un ou plusieurs enfants
- *     tags: [Parents]
+ *     description: Ajoute un ou plusieurs enfants au compte du parent.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - address
+ *               - school_id
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Marie Dupont"
+ *               address:
+ *                 type: string
+ *                 example: "Dakar, Almadies"
+ *               school_id:
+ *                 type: integer
+ *                 description: ID de l'école
+ *                 example: 1
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
-
-
 
 import { getUserFromRequest } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";

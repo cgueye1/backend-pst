@@ -2,15 +2,40 @@
  * @swagger
  * /api/notifications/user:
  *   get:
- *     summary: Récupérer les notifications de l'utilisateur connecté
- *     description: >
- *       Retourne les notifications actives destinées à l'utilisateur connecté
- *       (personnelles ou globales), avec pagination et nombre de notifications non lues.
- *     tags: [ ADMIN]
+ *     summary: Récupérer les notifications de l'utilisateur
+ *     description: Récupère toutes les notifications de l'utilisateur connecté.
+ *     tags: ["Notifications"]
  *     security:
  *       - bearerAuth: []
-
+ *     parameters:
+ *       - in: query
+ *         name: unread_only
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: unread_only
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: limit
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 
 
 

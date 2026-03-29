@@ -7,9 +7,99 @@ import { query } from "@/lib/db";
  * /api/conversations/{id}/messages:
  *   get:
  *     summary: Récupérer les messages d'une conversation
- *     tags: [Messagerie]
+ *     description: Récupère les messages d'une conversation avec pagination.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la conversation
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Nombre de messages à récupérer
+ *       - in: query
+ *         name: offset
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Offset pour la pagination
+ *       - in: query
+ *         name: before_message_id
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Récupérer les messages avant cet ID
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ *   post:
+ *     summary: Envoyer un message dans une conversation
+ *     description: Envoie un nouveau message dans une conversation.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la conversation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 example: "Bonjour !"
+ *               message_type:
+ *                 type: string
+ *                 enum: ["text","image","file"]
+ *                 default: text
+ *               parent_message_id:
+ *                 type: integer
+ *                 description: ID du message parent (pour les réponses)
+ *               attachments:
+ *                 type: array
+ *                 description: Pièces jointes
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
-
 type Params = {
     params: Promise<{
         id: string;
@@ -41,10 +131,20 @@ export async function GET(req: NextRequest, context: Params) {
         m.id, m.content, m.message_type, m.attachments, m.metadata,
         m.is_edited, m.is_deleted, m.created_at, m.parent_message_id,
         m.sender_id, u.name AS sender_name, u.role AS sender_role,
+        -- Statut de lecture
         EXISTS(
           SELECT 1 FROM message_read_status mrs WHERE mrs.message_id = m.id AND mrs.user_id = $2
-        ) AS is_read_by_me,
+        ) AS is_read,
+        CASE 
+          WHEN m.sender_id = $2 THEN true
+          ELSE EXISTS(
+            SELECT 1 FROM message_read_status mrs WHERE mrs.message_id = m.id AND mrs.user_id = $2
+          )
+        END AS is_read_by_me,
         (SELECT COUNT(*) FROM message_read_status mrs WHERE mrs.message_id = m.id) AS read_count,
+        (SELECT COUNT(DISTINCT cp.user_id) - 1 
+         FROM conversation_participants cp 
+         WHERE cp.conversation_id = $1 AND cp.left_at IS NULL) AS total_participants,
         (SELECT COUNT(*) FROM messages m2 WHERE m2.parent_message_id = m.id) AS reply_count
       FROM messages m
       JOIN users u ON m.sender_id = u.id
@@ -128,9 +228,22 @@ export async function POST(
 
         // Marquer comme lu par l'expéditeur
         await query(
-            `INSERT INTO message_read_status (message_id, user_id) VALUES ($1, $2)`,
+            `INSERT INTO message_read_status (message_id, user_id, read_at) 
+             VALUES ($1, $2, now())
+             ON CONFLICT (message_id, user_id) DO NOTHING`,
             [message.id, user_id]
         );
+
+        // Mettre à jour le unread_count pour tous les autres participants
+        const participants = await query(
+            `SELECT user_id FROM conversation_participants 
+             WHERE conversation_id = $1 AND user_id != $2 AND left_at IS NULL`,
+            [conversationId, user_id]
+        );
+
+        for (const participant of participants.rows) {
+            await updateUnreadCount(conversationId, participant.user_id);
+        }
 
         const messageData = {
             id: message.id,
@@ -152,4 +265,40 @@ export async function POST(
         console.error("Error sending message:", error);
         return NextResponse.json({ success: false, message: "Erreur serveur" }, { status: 500 });
     }
+}
+
+/**
+ * Met à jour le unread_count pour un participant
+ */
+async function updateUnreadCount(conversationId: string, userId: number) {
+    // Compter les messages non lus après le last_read_at
+    const result = await query(
+        `SELECT COUNT(*) as unread_count
+         FROM messages m
+         WHERE m.conversation_id = $1
+           AND m.is_deleted = false
+           AND m.sender_id != $2
+           AND m.created_at > (
+               SELECT COALESCE(last_read_at, '1970-01-01'::timestamp)
+               FROM conversation_participants
+               WHERE conversation_id = $1 AND user_id = $2
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM message_read_status mrs
+               WHERE mrs.message_id = m.id AND mrs.user_id = $2
+           )`,
+        [conversationId, userId]
+    );
+
+    const unreadCount = parseInt(result.rows[0].unread_count || '0');
+
+    // Mettre à jour le unread_count
+    await query(
+        `UPDATE conversation_participants
+         SET unread_count = $1
+         WHERE conversation_id = $2 AND user_id = $3`,
+        [unreadCount, conversationId, userId]
+    );
+
+    return unreadCount;
 }

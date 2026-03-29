@@ -1,10 +1,20 @@
-﻿
+
 /**
  * @swagger
  * /api/drivers/subscription/plans:
  *   get:
  *     summary: Liste des plans d'abonnement disponibles
+ *     description: Retourne les plans actifs pour le rôle chauffeur.
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OK
+ *       403:
+ *         description: Non autorisé
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -65,66 +75,63 @@ export async function GET(request: NextRequest) {
 /**
  * @swagger
  * /api/drivers/subscription/plans:
- *   get:
- *     summary: Liste des méthodes de paiement sauvegardées
- *     tags: [CHAUFFEUR]
- */
-
-// export async function GET_PAYMENT_METHODS(request: NextRequest) {
-//     try {
-//         const user = await getUserFromRequest(request);
-//
-//         if (!user || user.role !== "driver") {
-//             return NextResponse.json(
-//                 { success: false, message: "Non autorisé" },
-//                 { status: 403 }
-//             );
-//         }
-//
-//         const methods = await query(
-//             `
-//             SELECT
-//                 id,
-//                 method_type,
-//                 card_holder_name,
-//                 card_last4,
-//                 card_brand,
-//                 card_exp_month,
-//                 card_exp_year,
-//                 mobile_number,
-//                 mobile_provider,
-//                 nickname,
-//                 is_default,
-//                 is_verified,
-//                 created_at,
-//                 last_used_at
-//             FROM saved_payment_methods
-//             WHERE user_id = $1
-//             ORDER BY is_default DESC, created_at DESC
-//             `,
-//             [user.id]
-//         );
-//
-//         return NextResponse.json({
-//             success: true,
-//             data: methods.rows
-//         });
-//
-//     } catch (error: any) {
-//         console.error("Erreur GET payment methods:", error);
-//         return NextResponse.json(
-//             { success: false, message: error.message },
-//             { status: 500 }
-//         );
-//     }
-// }
-
-/**
- * @swagger
- * /api/drivers/subscription/plans:
  *   post:
- *     summary: Ajouter une nouvelle méthode de paiement
+ *     summary: Ajouter une nouvelle méthode de paiement (saved_payment_methods)
+ *     description: Ajoute une méthode de paiement sauvegardée (carte ou mobile money).
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - method_type
+ *             properties:
+ *               method_type:
+ *                 type: string
+ *                 enum: [card, mobile_money]
+ *                 example: mobile_money
+ *               is_default:
+ *                 type: boolean
+ *                 default: false
+ *               nickname:
+ *                 type: string
+ *                 description: Nom affiché (optionnel)
+ *               mobile_provider:
+ *                 type: string
+ *                 description: Requis si method_type=mobile_money
+ *                 example: WAVE
+ *               mobile_number:
+ *                 type: string
+ *                 description: Requis si method_type=mobile_money
+ *                 example: "+221771234567"
+ *               card_holder_name:
+ *                 type: string
+ *                 description: Requis si method_type=card
+ *               card_number:
+ *                 type: string
+ *                 description: Requis si method_type=card
+ *               card_cvv:
+ *                 type: string
+ *                 description: Requis si method_type=card
+ *               card_exp_month:
+ *                 type: string
+ *                 description: Requis si method_type=card (MM)
+ *               card_exp_year:
+ *                 type: string
+ *                 description: Requis si method_type=card (YYYY)
+ *     responses:
+ *       201:
+ *         description: Créé
+ *       400:
+ *         description: Données invalides
+ *       403:
+ *         description: Non autorisé
+ *       500:
+ *         description: Erreur serveur
  */
 
 export async function POST (request: NextRequest) {

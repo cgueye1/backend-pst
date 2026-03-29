@@ -1,4 +1,23 @@
 /**
+ * @swagger
+ * /api/trips/update-gps-coordinates:
+ *   post:
+ *     summary: Mettre à jour les coordonnées GPS des trajets (admin)
+ *     description: Geocode les adresses des trajets qui n'ont pas encore de coordonnées GPS et met à jour la base.
+ *     tags: [ADMIN]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Mise à jour effectuée
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       500:
+ *         description: Erreur serveur
+ */
+/**
  * Endpoint pour mettre a jour les coordonnees GPS des trajets existants
  * POST /api/trips/update-gps-coordinates
  * 

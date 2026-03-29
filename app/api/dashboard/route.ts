@@ -3,7 +3,23 @@
  * /api/dashboard:
  *   get:
  *     summary: Récupérer les statistiques du tableau de bord
- *     tags: [ADMIN]
+ *     description: Récupère toutes les statistiques pour le tableau de bord administrateur : nombre d'utilisateurs, trajets, revenus mensuels, etc.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -67,7 +83,7 @@ export async function GET(req: NextRequest) {
                 SELECT
                     CASE
                         WHEN method = 'Carte Bancaire' THEN 'Carte Bancaire'
-                        WHEN method IN ('Wave', 'Orange Money', 'Yas Money', 'Kay Pay') THEN 'Mobile Money'
+                        WHEN method IN ('Wave', 'Orange Money', 'Yas Money', 'Kay Pay','mobile_money') THEN 'Mobile Money'
                         WHEN method = 'cash' THEN 'Espèces'
                         ELSE 'Autre'
                     END AS payment_type,

@@ -1,4 +1,15 @@
-﻿// /api/swagger.json/route.ts
+/**
+ * @swagger
+ * /api/swagger.json:
+ *   get:
+ *     summary: Spécification OpenAPI (JSON)
+ *     description: Retourne la специфика Swagger/OpenAPI générée à partir des annotations `@swagger`.
+ *     tags: [DOCS]
+ *     responses:
+ *       200:
+ *         description: Spécification OpenAPI au format JSON
+ */
+// /api/swagger.json/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import swaggerJSDoc from "swagger-jsdoc";
 import path from "path";

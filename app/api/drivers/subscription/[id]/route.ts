@@ -9,12 +9,50 @@ import { setCorsHeaders, corsOptions } from "@/lib/cors";
  *   delete:
  *     summary: Résilier l'abonnement
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'abonnement (subscription_id)
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Raison de résiliation (optionnel)
+ *                 example: "Je n'utilise plus le service"
+ *               cancel_immediately:
+ *                 type: boolean
+ *                 description: true = résiliation immédiate, false = à la fin de la période
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: Résiliation enregistrée
+ *       400:
+ *         description: Données invalides
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Abonnement actif introuvable
+ *       500:
+ *         description: Erreur serveur
  */
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     const origin = request.headers.get('origin');
     try {
         const user = await getUserFromRequest(request);
@@ -27,10 +65,20 @@ export async function DELETE(request: NextRequest) {
             return setCorsHeaders(response, origin);
         }
 
-        const body = await request.json();
-        const { subscription_id, reason, cancel_immediately = false } = body;
+        const { id } = await params;
+        const subscription_id = Number(id);
 
-        if (!subscription_id) {
+        let reason: string | undefined;
+        let cancel_immediately = false;
+        try {
+            const body = await request.json();
+            reason = body?.reason;
+            cancel_immediately = Boolean(body?.cancel_immediately);
+        } catch {
+            // body optionnel
+        }
+
+        if (!subscription_id || Number.isNaN(subscription_id)) {
             const response = NextResponse.json(
                 { success: false, message: "ID d'abonnement requis" },
                 { status: 400 }

@@ -10,8 +10,59 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  *     summary: Réinitialisation du mot de passe avec code OTP
  *     description: Vérifie le code OTP fourni et met à jour le mot de passe de l'utilisateur si le code est valide et non expiré.
  *     tags: [Auth]
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - code
+ *               - newPassword
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *                 example: 1
+ *               code:
+ *                 type: string
+ *                 example: "1234"
+ *               newPassword:
+ *                 type: string
+ *                 example: "NouveauMotDePasse123!"
+ *     responses:
+ *       200:
+ *         description: Mot de passe réinitialisé avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: Mot de passe réinitialisé avec succès
+ *       400:
+ *         description: Paramètres manquants ou code invalide
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Paramètres manquants ou code invalide
+ *                   example: "Paramètres manquants ou code invalide"
+ *       500:
+ *         description: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "string"
  */
+
+
 
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);

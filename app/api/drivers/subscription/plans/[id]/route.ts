@@ -13,6 +13,24 @@ type Params = {
  *   delete:
  *     summary: Supprimer une méthode de paiement
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la méthode de paiement sauvegardée (saved_payment_methods.id)
+ *     responses:
+ *       200:
+ *         description: Supprimée
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Introuvable
+ *       500:
+ *         description: Erreur serveur
  */
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
@@ -70,6 +88,24 @@ export async function DELETE(request: NextRequest, context: Params) {
  *   put:
  *     summary: Définir une méthode comme par défaut
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la méthode de paiement sauvegardée (saved_payment_methods.id)
+ *     responses:
+ *       200:
+ *         description: OK
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Introuvable
+ *       500:
+ *         description: Erreur serveur
  */
 export async function PUT(request: NextRequest, context: Params) {
     const origin = request.headers.get('origin');

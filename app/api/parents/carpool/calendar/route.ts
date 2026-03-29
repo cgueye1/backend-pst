@@ -4,20 +4,142 @@
  * /api/parents/carpool/calendar:
  *   post:
  *     summary: Ajouter un trajet au calendrier du covoiturage
+ *     description: Ajoute un nouveau trajet au calendrier d'un groupe de covoiturage
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - group_id
+ *               - date
+ *               - departure_time
+ *             properties:
+ *               group_id:
+ *                 type: integer
+ *               date:
+ *                 type: string
+ *                 format: date
+ *               driver_id:
+ *                 type: integer
+ *               start_point:
+ *                 type: string
+ *               end_point:
+ *                 type: string
+ *               departure_time:
+ *                 type: string
+ *                 format: time
+ *               return_time:
+ *                 type: string
+ *                 format: time
+ *               capacity_max:
+ *                 type: integer
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Trajet ajouté avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  *   get:
  *     summary: Récupérer le calendrier du groupe
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+
+ *     parameters:
+ *       - in: query
+ *         name: group_id
+ *         schema:
+ *           type: string
+ *         description: Paramètre de requête
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *         description: Paramètre de requête
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *         description: Paramètre de requête
+ *       - in: query
+ *         name: calendar_id
+ *         schema:
+ *           type: string
+ *         description: Paramètre de requête
  *   put:
- *      summary: Modifier une entrée du calendrier
- *      tags: [Parents]
+ *     summary: Modifier une entrée du calendrier
+ *     description: Modifie une entrée existante du calendrier
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - calendar_id
+ *             properties:
+ *               calendar_id:
+ *                 type: integer
+ *               driver_id:
+ *                 type: integer
+ *               start_point:
+ *                 type: string
+ *               end_point:
+ *                 type: string
+ *               departure_time:
+ *                 type: string
+ *                 format: time
+ *               return_time:
+ *                 type: string
+ *                 format: time
+ *               notes:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Calendrier mis à jour
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  *   delete:
- *      summary: Supprimer une entrée du calendrier
- *      tags: [Parents]
+ *     summary: Supprimer une entrée du calendrier
+ *     description: Supprime une entrée du calendrier
+ *     tags: [Parents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: calendar_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'entrée du calendrier
+ *     responses:
+ *       200:
+ *         description: Entrée supprimée avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -95,6 +217,32 @@ export async function POST(req: NextRequest) {
             if (driverCheck.rowCount === 0) {
                 const response = NextResponse.json(
                     { success: false, error: 'Le conducteur doit être membre du groupe' },
+                    { status: 400 }
+                );
+                return setCorsHeaders(response, origin);
+            }
+
+            // Vérifier si le parent est déjà assigné ce jour dans un autre groupe
+            const conflictCheck = await query(
+                `
+                SELECT c.id, c.group_id, g.name as group_name
+                FROM carpool_calendar c
+                INNER JOIN carpool_groups g ON c.group_id = g.id
+                WHERE c.driver_id = $1 
+                AND c.date = $2 
+                AND c.group_id != $3
+                AND c.status != 'cancelled'
+                `,
+                [driver_id, date, group_id]
+            );
+
+            if (conflictCheck.rowCount && conflictCheck.rowCount > 0) {
+                const conflict = conflictCheck.rows[0];
+                const response = NextResponse.json(
+                    { 
+                        success: false, 
+                        error: `Ce parent est déjà assigné à conduire le ${date} dans le groupe "${conflict.group_name}"` 
+                    },
                     { status: 400 }
                 );
                 return setCorsHeaders(response, origin);

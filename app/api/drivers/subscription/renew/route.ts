@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { getPaymentMethodToStore, normalizeMobileProvider } from "@/lib/payments/utils";
@@ -9,7 +9,75 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/drivers/subscription/renew:
  *   post:
  *     summary: Renouveler l'abonnement
+ *     description: >
+ *       Renouvelle un abonnement existant. Permet soit d'utiliser une méthode de paiement sauvegardée,
+ *       soit de fournir de nouvelles infos (carte ou mobile money).
  *     tags: [CHAUFFEUR]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subscription_id
+ *             properties:
+ *               subscription_id:
+ *                 type: integer
+ *                 example: 12
+ *               use_saved_payment:
+ *                 type: boolean
+ *                 default: false
+ *               saved_payment_method_id:
+ *                 type: integer
+ *                 description: Requis si use_saved_payment=true
+ *                 example: 3
+ *               payment_method:
+ *                 type: string
+ *                 description: Requis si use_saved_payment=false
+ *                 enum: [card, mobile_money]
+ *                 example: mobile_money
+ *               mobile_provider:
+ *                 type: string
+ *                 description: Requis si payment_method=mobile_money
+ *                 example: WAVE
+ *               mobile_number:
+ *                 type: string
+ *                 description: Requis si payment_method=mobile_money
+ *                 example: "+221771234567"
+ *               card_holder_name:
+ *                 type: string
+ *                 description: Requis si payment_method=card
+ *                 example: "Amadou Diallo"
+ *               card_number:
+ *                 type: string
+ *                 description: Requis si payment_method=card
+ *                 example: "4111 1111 1111 1111"
+ *               card_cvv:
+ *                 type: string
+ *                 description: Requis si payment_method=card
+ *                 example: "123"
+ *               card_exp_month:
+ *                 type: string
+ *                 description: Requis si payment_method=card (MM)
+ *                 example: "12"
+ *               card_exp_year:
+ *                 type: string
+ *                 description: Requis si payment_method=card (YYYY)
+ *                 example: "2028"
+ *     responses:
+ *       200:
+ *         description: Abonnement renouvelé
+ *       400:
+ *         description: Données invalides
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Abonnement introuvable
+ *       500:
+ *         description: Erreur serveur
  */
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);

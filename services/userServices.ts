@@ -1,10 +1,10 @@
 import { query } from "../lib/db";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
-import twilio from "twilio";
 import crypto from "crypto";
 import { query as dbQuery } from "../lib/db";
 import { notifyAdmins, AdminNotificationTypes } from "./notificationService";
+import { sendOtpByLamSms } from "../lib/lamSms";
 /*  CREATE  */
 // Génère un mot de passe par défaut selon le rôle, sinon aléatoire
 const generatePassword = (role?: string) => {
@@ -274,24 +274,23 @@ export const sendCodeByEmail = async (email: string, code: string) => {
             subject: "Code de réinitialisation",
             text: `Votre code de réinitialisation est : ${code}`,
         });
-        console.log("Mail envoyé à", email);
+        console.log("✅ Mail envoyé à", email);
     } catch (err) {
-        console.error("Erreur envoi mail :", err);
+        const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
+        console.error("❌ Erreur envoi mail :", errorMessage);
+        throw new Error(`Échec de l'envoi de l'email: ${errorMessage}`);
     }
 };
 
 
-// --- SMS Twilio ---
-const twilioClient = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
-
+// --- SMS LAM (LaFrica Mobile) ---
 export const sendCodeBySMS = async (phone: string, code: string) => {
-    if (!twilioClient) throw new Error("Twilio n'est pas configuré !");
-    await twilioClient.messages.create({
-        body: `Votre code de réinitialisation est : ${code}`,
-        from: "+1 314 314 8257", // ton numéro Twilio valide
-        to: phone,
-    });
+    try {
+        await sendOtpByLamSms(phone, code);
+        console.log(`✅ Code OTP envoyé par SMS à ${phone}`);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+        console.error(`❌ Erreur lors de l'envoi du SMS à ${phone}:`, errorMessage);
+        throw new Error(`Échec de l'envoi du SMS: ${errorMessage}`);
+    }
 };

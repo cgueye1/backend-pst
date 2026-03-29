@@ -2,24 +2,102 @@
  * @swagger
  * /api/parents/children/{childId}:
  *   get:
- *     summary: Récupérer les détails d'un enfant
- *     description: Retourne les informations complètes d'un enfant avec horaires personnalisés
- *     tags: [Parents]
+ *     summary: Récupérer un enfant par ID
+ *     description: Récupère les informations détaillées d'un enfant spécifique.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: childId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'enfant
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   put:
- *     summary: Modifier les informations d'un enfant
- *     description: >
- *       Permet de modifier le nom, l'école, l'adresse et les horaires personnalisés
- *       d'un enfant. Les horaires peuvent être différents de ceux de l'école.
- *     tags: [Parents]
+ *     summary: Mettre à jour un enfant
+ *     description: Met à jour les informations d'un enfant.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: childId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID childId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               name:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               school_id:
+ *                 type: integer
+ *               birth_date:
+ *                 type: string
+ *                 format: date
+ *               grade:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   delete:
  *     summary: Supprimer un enfant
- *     tags: [Parents]
+ *     description: Supprime un enfant du compte du parent.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: childId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID childId
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { NextRequest, NextResponse } from 'next/server';

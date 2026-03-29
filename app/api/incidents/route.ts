@@ -3,22 +3,95 @@
  * /api/incidents:
  *   get:
  *     summary: Récupérer la liste des incidents
- *     description: >
- *       Retourne les incidents avec recherche, pagination et tri par date de création.
- *     tags: [ADMIN]
-
- */
-/**
- * @swagger
- * /api/incidents:
+ *     description: Récupère les incidents avec recherche, pagination et tri par date.
+ *     tags: ["SIGNALER UN PROBLEME"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Recherche dans le type ou la description
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ["En cours","Resolu"]
+ *         description: status
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: page
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: limit
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
- *     summary: Créer un nouvel incident
- *     description: >
- *       Permet de créer un incident avec 1 à 3 documents obligatoires. pour tous les utilisateurs
- *     tags:
- *       - SIGNALER UN PROBLEME
-
+ *     summary: Créer un incident
+ *     description: Crée un incident avec 1 à 3 documents obligatoires.
+ *     tags: ["SIGNALER UN PROBLEME"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type_de_problem:
+ *                 type: string
+ *                 example: "Accident"
+ *               description:
+ *                 type: string
+ *                 example: "Description détaillée du problème"
+ *               documents:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Documents (1 à 3 fichiers)
+ *                 minItems: 1
+ *                 maxItems: 3
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
+
 
 import { query } from '@/lib/db';
 import {NextRequest, NextResponse} from 'next/server';

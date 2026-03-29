@@ -1,6 +1,37 @@
-import {getUserFromRequest} from "@/lib/auth";
-import {NextRequest, NextResponse} from "next/server";
-import {query} from "@/lib/db";
+/**
+ * @swagger
+ * /api/notifications/{id}/read:
+ *   put:
+ *     summary: Marquer une notification comme lue
+ *     description: Marque une notification comme lue pour l'utilisateur connecté.
+ *     tags: ["Notifications"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la notification
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+
+import { getUserFromRequest } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { query } from "@/lib/db";
 import { setCorsHeaders, corsOptions } from "@/lib/cors";
 
 type Params = {

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
@@ -7,8 +7,33 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/drivers/subscription/alertes:
  *   get:
  *     summary: Envoyer des alertes d'expiration d'abonnements
+ *     description: >
+ *       Endpoint cron. Autorisation via:
+ *       - header `Authorization: Bearer {CRON_SECRET}` OU
+ *       - query `?cron_secret={CRON_SECRET}`
  *     tags: [CRON]
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: "Bearer {CRON_SECRET}"
+ *       - in: query
+ *         name: cron_secret
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Secret cron alternatif
+ *     responses:
+ *       200:
+ *         description: Traitement OK
+ *       401:
+ *         description: Non autorisé (secret manquant/invalide)
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }

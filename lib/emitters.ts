@@ -1,9 +1,24 @@
 import { Pool } from "pg";
 
+// Configuration du pool avec la même logique SSL que lib/db.ts
+const poolConfig: {
+    connectionString: string;
+    ssl?: { rejectUnauthorized: boolean } | boolean;
+} = {
+    connectionString: process.env.DATABASE_URL || '',
+};
+
+// Configuration SSL (même logique que lib/db.ts)
+if (process.env.DATABASE_SSL !== undefined) {
+    if (process.env.DATABASE_SSL === 'true') {
+        poolConfig.ssl = { rejectUnauthorized: false };
+    }
+} else if (process.env.NODE_ENV === 'production') {
+    poolConfig.ssl = { rejectUnauthorized: false };
+}
+
 // Crée une instance de connexion PostgreSQL
-export const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
+export const pool = new Pool(poolConfig);
 
 // Émettre un événement à tous les participants d'une conversation
 export async function emitToConversation(conversationId: string, event: string, data: any) {

@@ -3,13 +3,91 @@
  * /api/auth/login/driver:
  *   post:
  *     summary: Connexion d'un chauffeur
- *     description: |
- *       Permet à un chauffeur de se connecter et de recevoir un token JWT.
- *       Cette route est spécifiquement réservée aux utilisateurs avec le rôle "driver".
- *       Les autres rôles (admin, parent) ne peuvent pas utiliser cette route.
+ *     description: Permet à un chauffeur de se connecter et de recevoir un token JWT. Réservé aux utilisateurs avec le rôle "driver".
  *     tags: [Auth]
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "driver@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *       400:
+ *         description: Email et mot de passe requis
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Email et mot de passe requis
+ *                   example: "Email et mot de passe requis"
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Invalid credentials
+ *                   example: "Invalid credentials"
+ *       403:
+ *         description: Accès réservé aux chauffeurs ou compte inactif
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Accès réservé aux chauffeurs ou compte inactif
+ *                   example: "Accès réservé aux chauffeurs ou compte inactif"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: User not found
+ *                   example: "User not found"
+ *       500:
+ *         description: Erreur serveur lors de la connexion
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Erreur serveur lors de la connexion
+ *                   example: "Erreur serveur lors de la connexion"
  */
+
+
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByEmail } from "@/services/userServices";

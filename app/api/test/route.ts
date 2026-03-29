@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
 
@@ -34,4 +35,22 @@ export async function GET(req: NextRequest) {
         return setCorsHeaders(response, origin);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -8,11 +8,52 @@ import { setCorsHeaders, corsOptions } from "@/lib/cors";
  * @swagger
  * /api/parents/children/{childId}/location:
  *   put:
- *     summary: Associer une école et une adresse de domicile à un enfant
- *     tags: [Parents]
+ *     summary: Mettre à jour la localisation d'un enfant
+ *     description: Met à jour la localisation GPS d'un enfant.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: childId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID childId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - latitude
+ *               - longitude
+ *             properties:
+ *               latitude:
+ *                 type: number
+ *                 format: float
+ *                 example: 14.7167
+ *               longitude:
+ *                 type: number
+ *                 format: float
+ *                 example: -17.4677
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
 
 type Params = {
     params: Promise<{ childId: string }>;

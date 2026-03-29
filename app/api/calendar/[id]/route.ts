@@ -1,5 +1,41 @@
 /**
  * @swagger
+ * /api/calendar/{id}:
+ *   delete:
+ *     summary: Supprimer un événement
+ *     description: Supprime un événement existant selon son type.
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'événement
+ *       - in: query
+ *         name: type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: ["HOLIDAY","FERIE"]
+ *         description: Type d'événement
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+
+/**
+ * @swagger
  * /api/calendar/id:
 *   delete:
 *     summary: Supprimer un événement

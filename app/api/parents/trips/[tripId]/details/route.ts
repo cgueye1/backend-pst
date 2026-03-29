@@ -7,11 +7,31 @@ import { setCorsHeaders, corsOptions } from "@/lib/cors";
  * @swagger
  * /api/parents/trips/{tripId}/details:
  *   get:
- *     summary: Détails complets d'un trajet
- *     description: Permet à un parent de consulter les informations complètes d'un trajet
- *     tags: [Parents]
+ *     summary: Récupérer les détails d'un trajet
+ *     description: Récupère les détails complets d'un trajet spécifique.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du trajet
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 export async function OPTIONS(req: NextRequest) {
@@ -51,6 +71,25 @@ export async function GET(
         s.address AS school_address,
         s.opening_time,
         s.closing_time,
+        -- Récupérer tous les arrêts (écoles) du trajet
+        (
+            SELECT COALESCE(
+                json_agg(
+                    jsonb_build_object(
+                        'id', ts.id,
+                        'school_id', ts.school_id,
+                        'school_name', s2.name,
+                        'school_address', s2.address,
+                        'stop_order', ts.stop_order,
+                        'estimated_arrival_time', ts.estimated_arrival_time
+                    ) ORDER BY ts.stop_order
+                ),
+                '[]'::json
+            )
+            FROM trip_stops ts
+            LEFT JOIN schools s2 ON ts.school_id = s2.id
+            WHERE ts.trip_id = t.id
+        ) as stops,
 
         d.id AS driver_id,
         u_driver.id AS driver_user_id,
@@ -113,11 +152,16 @@ export async function GET(
             [result.rows[0].driver_id]
         );
 
+        const tripData = result.rows[0];
+
         const response = NextResponse.json({
             success: true,
             data: {
-                ...result.rows[0],
-                driver_rating: Number(result.rows[0].driver_rating).toFixed(1),
+                ...tripData,
+                school_id: tripData.school_id, // École principale (pour compatibilité)
+                school_name: tripData.school_name,
+                stops: tripData.stops || [], // Tous les arrêts (écoles) du trajet
+                driver_rating: Number(tripData.driver_rating).toFixed(1),
                 recent_reviews: reviews.rows,
             },
         });

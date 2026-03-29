@@ -8,11 +8,45 @@ import { setCorsHeaders, corsOptions } from "@/lib/cors";
  * /api/parents/trips/{tripId}/contact-driver:
  *   post:
  *     summary: Contacter le chauffeur
- *     description: Crée ou récupère une conversation entre un parent et un chauffeur
- *     tags: [Parents]
+ *     description: Initie une conversation avec le chauffeur d'un trajet.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du trajet
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Message initial (optionnel)
+ *                 example: "Bonjour, j'aimerais vous contacter"
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }

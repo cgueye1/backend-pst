@@ -6,18 +6,95 @@
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+
+ *     responses:
+ *       200:
+ *         description: Liste des groupes
+ *       401:
+ *         description: Non autorisé
  *   post:
  *     summary: Créer un groupe de covoiturage
+ *     description: Crée un nouveau groupe de covoiturage
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               school_id:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Groupe créé avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       404:
+ *         description: École introuvable
  *   put:
- *     summary: modifier un groupe
+ *     summary: Modifier un groupe
+ *     description: Modifie les informations d'un groupe de covoiturage
  *     tags: [Parents]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - group_id
+ *             properties:
+ *               group_id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Groupe mis à jour avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé (seul le créateur peut modifier)
  *   delete:
- *     summary: supprimer un groupe
+ *     summary: Supprimer un groupe
+ *     description: Supprime un groupe de covoiturage
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: group_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du groupe à supprimer
+ *     responses:
+ *       200:
+ *         description: Groupe supprimé avec succès
+ *       400:
+ *         description: Paramètres invalides
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé (seul le créateur peut supprimer)
  *     tags: [Parents]
 
  */

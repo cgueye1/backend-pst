@@ -7,9 +7,40 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * @swagger
  * /api/parents/children-trips:
  *   get:
- *     summary: Gérer les enfants et leurs trajets associés
- *     tags: [Parents]
+ *     summary: Récupérer les trajets des enfants
+ *     description: Récupère tous les trajets associés aux enfants du parent.
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: child_id
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: child_id
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ["pending","completed","canceled"]
+ *         description: status
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }

@@ -3,13 +3,90 @@
  * /api/auth/login/parent:
  *   post:
  *     summary: Connexion d'un parent
- *     description: |
- *       Permet à un parent de se connecter et de recevoir un token JWT.
- *       Cette route est spécifiquement réservée aux utilisateurs avec le rôle "parent".
- *       Les autres rôles (admin, driver) ne peuvent pas utiliser cette route.
+ *     description: Permet à un parent de se connecter et de recevoir un token JWT. Réservé aux utilisateurs avec le rôle "parent".
  *     tags: [Auth]
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "parent@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *       400:
+ *         description: Email et mot de passe requis
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Email et mot de passe requis
+ *                   example: "Email et mot de passe requis"
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Invalid credentials
+ *                   example: "Invalid credentials"
+ *       403:
+ *         description: Accès réservé aux parents ou compte inactif
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Accès réservé aux parents ou compte inactif
+ *                   example: "Accès réservé aux parents ou compte inactif"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: User not found
+ *                   example: "User not found"
+ *       500:
+ *         description: Erreur serveur lors de la connexion
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Erreur serveur lors de la connexion
+ *                   example: "Erreur serveur lors de la connexion"
  */
+
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByEmail } from "@/services/userServices";

@@ -2,13 +2,80 @@
  * @swagger
  * /api/users:
  *   get:
- *     summary: Récupérer tous les utilisateurs (admin uniquement)
- *     tags: [ADMIN]
-
+ *     summary: Récupérer tous les utilisateurs
+ *     description: Récupère la liste de tous les utilisateurs. Réservé aux administrateurs.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
  *     summary: Créer un utilisateur
- *     tags: [ADMIN]
-
+ *     description: Crée un nouvel utilisateur (admin, parent ou chauffeur). Réservé aux administrateurs.
+ *     tags: ["ADMIN"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - role
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Jean Dupont"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+221771234567"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe (optionnel, généré automatiquement si absent)
+ *                 example: "password123"
+ *               role:
+ *                 type: string
+ *                 enum: ["admin","parent","driver"]
+ *                 example: "parent"
+ *               address:
+ *                 type: string
+ *                 example: "Dakar, Almadies"
+ *               status:
+ *                 type: string
+ *                 enum: ["active","inactive"]
+ *                 default: active
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { createUser, getAllUsers } from "@/services/userServices";
@@ -18,6 +85,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
 import { createUserSchema, validateData } from '@/lib/validation';
 
+
+export async function OPTIONS(req: NextRequest) {
+    return corsOptions(req);
 }
 
 export async function GET(req: NextRequest) {
@@ -32,8 +102,21 @@ export async function GET(req: NextRequest) {
         const res = await getAllUsers();
         const response = NextResponse.json(res);
         return setCorsHeaders(response, origin);
-    } catch (err) {
-        const response = NextResponse.json({ error: String(err) }, { status: 500 });
+    } catch (err: any) {
+        // Gestion des erreurs d'authentification
+        const errorMessage = err?.message || String(err);
+        let status = 500;
+
+        if (errorMessage.includes('No token provided') ||
+            errorMessage.includes('Invalid token') ||
+            errorMessage.includes('Unauthorized')) {
+            status = 401;
+        }
+
+        const response = NextResponse.json({
+            error: errorMessage,
+            message: status === 401 ? 'Non autorisé. Veuillez vous connecter.' : errorMessage
+        }, { status });
         return setCorsHeaders(response, origin);
     }
 }

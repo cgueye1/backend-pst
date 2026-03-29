@@ -115,10 +115,31 @@ export async function GET(request: NextRequest) {
             `
             SELECT
                 -- Statistiques des trajets
-                COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completed_trips,
-                COUNT(CASE WHEN t.status = 'canceled' THEN 1 END) as canceled_trips,
-                COUNT(CASE WHEN t.status = 'pending' AND t.departure_time > NOW() THEN 1 END) as upcoming_trips,
-                COUNT(CASE WHEN t.status = 'pending' AND t.departure_time < NOW() THEN 1 END) as missed_trips,
+                -- Utiliser le statut global pour les comptages
+                COUNT(CASE 
+                    WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                        CASE WHEN get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'completed' THEN 1 END
+                    ELSE
+                        CASE WHEN t.status = 'completed' THEN 1 END
+                END) as completed_trips,
+                COUNT(CASE 
+                    WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                        CASE WHEN get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'canceled' THEN 1 END
+                    ELSE
+                        CASE WHEN t.status = 'canceled' THEN 1 END
+                END) as canceled_trips,
+                COUNT(CASE 
+                    WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                        CASE WHEN get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'pending' AND t.departure_time > NOW() THEN 1 END
+                    ELSE
+                        CASE WHEN t.status = 'pending' AND t.departure_time > NOW() THEN 1 END
+                END) as upcoming_trips,
+                COUNT(CASE 
+                    WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
+                        CASE WHEN get_trip_overall_status(t.status, t.return_status, t.trip_type) = 'pending' AND t.departure_time < NOW() THEN 1 END
+                    ELSE
+                        CASE WHEN t.status = 'pending' AND t.departure_time < NOW() THEN 1 END
+                END) as missed_trips,
                 
                 -- Statistiques des évaluations
                 COALESCE(AVG(e.rating), 0) as average_rating,

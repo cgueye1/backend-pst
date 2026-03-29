@@ -6,8 +6,19 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/auth/logout:
  *   post:
  *     summary: Déconnexion d'un utilisateur
- *     description: Supprime le token côté client (JWT côté front) pour simuler la déconnexion.
+ *     description: Supprime le token côté client (cookie JWT) pour simuler la déconnexion. Le token doit être invalidé côté client.
  *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: Logout successful
+ *                   example: "Logout successful"
  */
 
 export async function OPTIONS(req: NextRequest) {

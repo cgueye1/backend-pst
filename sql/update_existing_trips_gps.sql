@@ -31,3 +31,21 @@ WHERE start_latitude IS NULL
 -- SET start_latitude = $1, start_longitude = $2, end_latitude = $3, end_longitude = $4
 -- WHERE id = $5;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

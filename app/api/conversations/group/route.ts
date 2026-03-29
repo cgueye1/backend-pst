@@ -1,4 +1,51 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿/**
+ * @swagger
+ * /api/conversations/group:
+ *   post:
+ *     summary: Créer une conversation de groupe
+ *     description: Crée une nouvelle conversation de groupe avec plusieurs participants. Le créateur devient automatiquement admin.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - participant_ids
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Titre de la conversation
+ *                 example: "Groupe Trajet École ABC"
+ *               participant_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: IDs des participants (minimum 2)
+ *                 example: [1,2,3]
+ *               trip_id:
+ *                 type: integer
+ *                 description: ID du trajet associé (optionnel)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ */
+
+ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import {emitToUser, pool} from "@/lib/emitters";
 import { query } from "@/lib/db";

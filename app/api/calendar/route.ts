@@ -3,30 +3,92 @@
  * /api/calendar:
  *   get:
  *     summary: Récupérer les événements du calendrier
- *     description: >
- *       Retourne les vacances scolaires (si schoolId est fourni)
- *       ou les jours fériés pour un mois et une année donnés.
- *     tags: [ADMIN]
-
- *
+ *     description: Retourne les vacances scolaires (si schoolId est fourni) ou les jours fériés pour un mois et une année donnés.
+ *     tags: ["ADMIN"]
+ *     parameters:
+ *       - in: query
+ *         name: schoolId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID de l'école pour les vacances scolaires
+ *       - in: query
+ *         name: month
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Mois (1-12)
+ *       - in: query
+ *         name: year
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Année (ex: 2024)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
  *     summary: Créer un événement
- *     description: >
- *       Crée un événement de type vacances scolaires (HOLIDAY)
- *       ou jour férié (FERIE).
- *     tags: [ADMIN]
-
-*/
-
-
-import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-
-import { setCorsHeaders, corsOptions } from '@/lib/cors';
-/**
- * GET /api/calendar
- * Récupère les événements (vacances + jours fériés) pour un mois donné
+ *     description: Crée un événement de type vacances scolaires (HOLIDAY) ou jour férié (FERIE).
+ *     tags: ["ADMIN"]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - start_date
+ *               - end_date
+ *               - name
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: ["HOLIDAY","FERIE"]
+ *                 example: "HOLIDAY"
+ *               school_id:
+ *                 type: integer
+ *                 description: ID de l'école (requis pour HOLIDAY)
+ *               start_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2024-12-20"
+ *               end_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2024-12-31"
+ *               name:
+ *                 type: string
+ *                 example: "Vacances de Noël"
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+import {NextRequest, NextResponse} from "next/server";
+import {corsOptions, setCorsHeaders} from "@/lib/cors";
+import { query } from "@/lib/db";
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -47,7 +109,32 @@ export async function GET(req: NextRequest) {
             return setCorsHeaders(response, origin);
         }
 
-        //   PAS D'ÉCOLE → PAS DE VACANCES
+        // Jours fériés (toujours récupérés, pas de filtre école)
+        const holidays = await query(
+            `
+      SELECT 
+        id, 
+        label AS title, 
+        date AS start_date, 
+        date AS end_date
+      FROM public_holidays
+      WHERE EXTRACT(MONTH FROM date) = $1
+        AND EXTRACT(YEAR FROM date) = $2
+      `,
+            [month, year]
+        );
+
+        const events: any[] = [
+            ...holidays.rows.map(h => ({
+                ...h,
+                type: 'FERIE',
+                schoolId: null,
+                start_date: h.start_date.toISOString().split('T')[0],
+                end_date: h.end_date.toISOString().split('T')[0]
+            }))
+        ];
+
+        // Ajouter les vacances si une école est sélectionnée
         if (schoolId) {
             const vacationsQuery = `
                 SELECT
@@ -66,7 +153,7 @@ export async function GET(req: NextRequest) {
             `;
 
             const vacations = await query(vacationsQuery, [schoolId]);
-            const events = [
+            events.push(
                 ...vacations.rows.map(v => ({
                     ...v,
                     type: 'HOLIDAY',
@@ -74,36 +161,8 @@ export async function GET(req: NextRequest) {
                     start_date: v.start_date.toISOString().split('T')[0],
                     end_date: v.end_date.toISOString().split('T')[0]
                 }))
-            ];
-            const response = NextResponse.json(events);
-            return setCorsHeaders(response, origin);
+            );
         }
-        
-        // Jours fériés (toujours récupérés, pas de filtre école)
-        const holidays = await query(
-            `
-      SELECT 
-        id, 
-        label AS title, 
-        date AS start_date, 
-        date AS end_date
-      FROM public_holidays
-      WHERE EXTRACT(MONTH FROM date) = $1
-        AND EXTRACT(YEAR FROM date) = $2
-      `,
-            [month, year]
-        );
-
-        // Fusion des deux types d'événements
-        const events = [
-            ...holidays.rows.map(h => ({
-                ...h,
-                type: 'FERIE',
-                schoolId: null,
-                start_date: h.start_date.toISOString().split('T')[0],
-                end_date: h.end_date.toISOString().split('T')[0]
-            }))
-        ];
 
         const response = NextResponse.json(events);
         return setCorsHeaders(response, origin);

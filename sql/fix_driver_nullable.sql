@@ -15,3 +15,21 @@ ALTER TABLE drivers
 -- WHERE table_name = 'drivers' 
 -- AND column_name IN ('vehicle_color', 'vehicle_plate', 'license_document', 'id_document', 'vehicle_photo');
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

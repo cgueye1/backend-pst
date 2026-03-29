@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Transport Scolaire</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .config-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .config-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tokens-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .token-item {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+        }
+
+        .token-item strong {
+            color: #667eea;
+        }
+
+        .token-value {
+            word-break: break-all;
+            color: #666;
+            font-family: monospace;
+            font-size: 0.8em;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .endpoints-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 15px;
+        }
+
+        .endpoint-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s;
+        }
+
+        .endpoint-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .endpoint-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .method-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+
+        .method-get { background: #4CAF50; color: white; }
+        .method-post { background: #2196F3; color: white; }
+        .method-put { background: #FF9800; color: white; }
+        .method-delete { background: #f44336; color: white; }
+
+        .endpoint-path {
+            font-family: monospace;
+            color: #666;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+
+        .endpoint-description {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 15px;
+        }
+
+        .form-inputs {
+            margin-bottom: 15px;
+        }
+
+        .form-inputs input, .form-inputs select, .form-inputs textarea {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .response-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .status-success { background: #4CAF50; color: white; }
+        .status-error { background: #f44336; color: white; }
+        .status-info { background: #2196F3; color: white; }
+
+        .response-body {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .flow-indicator {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 Test API Transport Scolaire</h1>
+
+        <!-- Aide CORS -->
+        <div class="config-section" style="background: #fff3cd; border: 2px solid #ffc107;">
+            <h2 style="color: #856404;">⚠️ Problème de connexion ?</h2>
+            <p style="color: #856404; margin-bottom: 10px;">
+                Si vous voyez "Failed to fetch", suivez ces étapes :
+            </p>
+            <ol style="color: #856404; margin-left: 20px;">
+                <li><strong>Ne pas ouvrir le fichier directement</strong> (file://) - Utilisez un serveur HTTP local</li>
+                <li><strong>Option 1 :</strong> Utilisez l'extension "Live Server" dans VS Code</li>
+                <li><strong>Option 2 :</strong> Lancez : <code>python -m http.server 8000</code> puis ouvrez <code>http://localhost:8000/tests/api-test.html</code></li>
+                <li><strong>Option 3 :</strong> Utilisez Node.js : <code>npx http-server -p 8000</code></li>
+                <li>Vérifiez que le serveur API est bien démarré à <code id="serverUrl">http://86.106.181.31:3000</code></li>
+            </ol>
+            <button onclick="testConnection()" style="background: #ffc107; color: #000; margin-top: 10px;">🔍 Tester la connexion au serveur</button>
+            <div id="connectionTest" style="margin-top: 10px;"></div>
+            <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 5px;">
+                <strong>💡 Astuce :</strong> Si vous êtes dans VS Code, installez l'extension "Live Server" 
+                puis faites clic droit sur ce fichier → "Open with Live Server"
+            </div>
+        </div>
+
+        <!-- Configuration -->
+        <div class="config-section">
+            <h2>⚙️ Configuration</h2>
+            <div class="config-grid">
+                <div class="form-group">
+                    <label>URL de base de l'API</label>
+                    <input type="text" id="baseUrl" value="http://86.106.181.31:3000" placeholder="http://86.106.181.31:3000">
+                </div>
+                <div class="form-group">
+                    <label>Email Chauffeur</label>
+                    <input type="email" id="driverEmail" value="driver@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe Chauffeur</label>
+                    <input type="password" id="driverPassword" value="password123">
+                </div>
+                <div class="form-group">
+                    <label>Email Parent</label>
+                    <input type="email" id="parentEmail" value="parent@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe Parent</label>
+                    <input type="password" id="parentPassword" value="password123">
+                </div>
+                <div class="form-group">
+                    <label>Email Admin</label>
+                    <input type="email" id="adminEmail" value="admin@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe Admin</label>
+                    <input type="password" id="adminPassword" value="admin123">
+                </div>
+            </div>
+            <div class="tokens-display">
+                <div class="token-item">
+                    <strong>Token Chauffeur:</strong>
+                    <div class="token-value" id="driverToken">Non connecté</div>
+                </div>
+                <div class="token-item">
+                    <strong>Token Parent:</strong>
+                    <div class="token-value" id="parentToken">Non connecté</div>
+                </div>
+                <div class="token-item">
+                    <strong>Token Admin:</strong>
+                    <div class="token-value" id="adminToken">Non connecté</div>
+                </div>
+                <div class="token-item">
+                    <strong>ID Trajet:</strong>
+                    <div class="token-value" id="tripId">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 1: Authentification -->
+        <div class="section">
+            <h2><span class="step-number">1</span>Authentification</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Login Chauffeur</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/auth/login/driver</div>
+                    <div class="endpoint-description">Connexion du chauffeur pour obtenir le token</div>
+                    <button onclick="loginDriver()">Se connecter (Chauffeur)</button>
+                    <div id="driverLoginResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Login Parent</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/auth/login/parent</div>
+                    <div class="endpoint-description">Connexion du parent pour obtenir le token</div>
+                    <button onclick="loginParent()">Se connecter (Parent)</button>
+                    <div id="parentLoginResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Login Admin</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/auth/login</div>
+                    <div class="endpoint-description">Connexion de l'admin pour obtenir le token</div>
+                    <button onclick="loginAdmin()">Se connecter (Admin)</button>
+                    <div id="adminLoginResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 2: Création de Trajet -->
+        <div class="section">
+            <h2><span class="step-number">2</span>Création de Trajet</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Créer Trajet Aller-Retour (Chauffeur)</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips</div>
+                    <div class="endpoint-description">Création d'un trajet aller-retour par le chauffeur</div>
+                    <div class="form-inputs">
+                        <input type="text" id="tripStartPoint" placeholder="Point de départ" value="DKR">
+                        <input type="text" id="tripEndPoint" placeholder="Point d'arrivée" value="Yoff">
+                        <input type="datetime-local" id="tripDepartureTime" placeholder="Heure de départ">
+                        <input type="datetime-local" id="tripReturnTime" placeholder="Heure de retour">
+                        <input type="number" id="tripCapacity" placeholder="Capacité max" value="9">
+                        <input type="number" id="tripSchoolId" placeholder="ID École" value="1">
+                    </div>
+                    <button onclick="createTripDriver()">Créer Trajet (Chauffeur)</button>
+                    <div id="createTripDriverResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Créer Trajet Aller-Retour (Admin)</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/trips</div>
+                    <div class="endpoint-description">Création d'un trajet aller-retour par l'admin</div>
+                    <div class="form-inputs">
+                        <input type="number" id="adminTripDriverId" placeholder="ID Chauffeur" value="1">
+                        <input type="text" id="adminTripStartPoint" placeholder="Point de départ" value="DKR">
+                        <input type="text" id="adminTripEndPoint" placeholder="Point d'arrivée" value="Yoff">
+                        <input type="datetime-local" id="adminTripDepartureTime" placeholder="Heure de départ">
+                        <input type="datetime-local" id="adminTripReturnTime" placeholder="Heure de retour">
+                        <input type="number" id="adminTripCapacity" placeholder="Capacité max" value="9">
+                        <input type="number" id="adminTripSchoolId" placeholder="ID École" value="1">
+                    </div>
+                    <button onclick="createTripAdmin()">Créer Trajet (Admin)</button>
+                    <div id="createTripAdminResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Voir mes trajets (Chauffeur)</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips</div>
+                    <div class="endpoint-description">Récupère tous les trajets du chauffeur</div>
+                    <div class="form-inputs">
+                        <select id="driverTripStatus">
+                            <option value="">Tous</option>
+                            <option value="pending">En attente</option>
+                            <option value="in_progress">En cours</option>
+                            <option value="completed">Terminé</option>
+                            <option value="canceled">Annulé</option>
+                        </select>
+                    </div>
+                    <button onclick="getDriverTrips()">Récupérer mes trajets</button>
+                    <div id="getDriverTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 3: Réservation (Parent) -->
+        <div class="section">
+            <h2><span class="step-number">3</span>Réservation (Parent)</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Trajets Disponibles</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/trips/available</div>
+                    <div class="endpoint-description">Récupère tous les trajets disponibles</div>
+                    <div class="form-inputs">
+                        <input type="number" id="availableSchoolId" placeholder="ID École (optionnel)">
+                        <input type="text" id="availableStartPoint" placeholder="Point de départ (optionnel)">
+                        <input type="text" id="availableEndPoint" placeholder="Point d'arrivée (optionnel)">
+                        <input type="number" id="minAvailableSeats" placeholder="Places min" value="1">
+                    </div>
+                    <button onclick="getAvailableTrips()">Voir les trajets disponibles</button>
+                    <div id="getAvailableTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Détails d'un trajet</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/trips/{tripId}/details</div>
+                    <div class="endpoint-description">Récupère les détails complets d'un trajet</div>
+                    <div class="form-inputs">
+                        <input type="number" id="tripDetailsId" placeholder="ID du trajet" value="">
+                    </div>
+                    <button onclick="getTripDetails()">Voir les détails</button>
+                    <div id="getTripDetailsResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Réserver un trajet</h3>
+                        <span class="method-badge method-post">POST</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/reservations</div>
+                    <div class="endpoint-description">Réserve un trajet aller-retour (aller + retour automatique)</div>
+                    <div class="form-inputs">
+                        <input type="number" id="reservationTripId" placeholder="ID du trajet" value="">
+                        <input type="text" id="reservationChildIds" placeholder="IDs enfants (séparés par virgule)" value="1">
+                        <label>
+                            <input type="checkbox" id="reservationRecurring"> Récurrent
+                        </label>
+                    </div>
+                    <button onclick="createReservation()">Réserver</button>
+                    <div id="createReservationResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Mes réservations</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/reservations</div>
+                    <div class="endpoint-description">Récupère toutes mes réservations</div>
+                    <div class="form-inputs">
+                        <select id="reservationStatus">
+                            <option value="all">Tous</option>
+                            <option value="pending">En attente</option>
+                            <option value="completed">Terminé</option>
+                            <option value="canceled">Annulé</option>
+                        </select>
+                    </div>
+                    <button onclick="getMyReservations()">Voir mes réservations</button>
+                    <div id="getMyReservationsResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Mes trajets</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/trips</div>
+                    <div class="endpoint-description">Récupère tous les trajets où mes enfants sont passagers</div>
+                    <button onclick="getMyTrips()">Voir mes trajets</button>
+                    <div id="getMyTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 4: Démarrage du Trajet (Chauffeur) -->
+        <div class="section">
+            <h2><span class="step-number">4</span>Démarrage du Trajet (Chauffeur)</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Démarrer un trajet</h3>
+                        <span class="method-badge method-put">PUT</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips/{id}/start</div>
+                    <div class="endpoint-description">Démarre un trajet (pending → in_progress)</div>
+                    <div class="form-inputs">
+                        <input type="number" id="startTripId" placeholder="ID du trajet" value="">
+                    </div>
+                    <button onclick="startTrip()">Démarrer le trajet</button>
+                    <div id="startTripResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Trajets en cours</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips?status=in_progress</div>
+                    <div class="endpoint-description">Récupère tous les trajets en cours</div>
+                    <button onclick="getInProgressTrips()">Voir les trajets en cours</button>
+                    <div id="getInProgressTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 5: Suivi en Temps Réel (Parent) -->
+        <div class="section">
+            <h2><span class="step-number">5</span>Suivi en Temps Réel (Parent)</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Suivi temps réel</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/trips/{tripId}/realtime</div>
+                    <div class="endpoint-description">Récupère les informations en temps réel du trajet</div>
+                    <div class="form-inputs">
+                        <input type="number" id="realtimeTripId" placeholder="ID du trajet" value="">
+                    </div>
+                    <button onclick="getRealtimeTrip()">Suivre en temps réel</button>
+                    <button onclick="startRealtimeTracking()" style="background: #4CAF50; margin-top: 10px;">Démarrer suivi auto (5s)</button>
+                    <div id="getRealtimeTripResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 6: Finalisation (Chauffeur) -->
+        <div class="section">
+            <h2><span class="step-number">6</span>Finalisation du Trajet (Chauffeur)</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Finaliser un trajet</h3>
+                        <span class="method-badge method-put">PUT</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips/{id}/completed</div>
+                    <div class="endpoint-description">Finalise un trajet (in_progress → completed)</div>
+                    <div class="form-inputs">
+                        <input type="number" id="completeTripId" placeholder="ID du trajet" value="">
+                    </div>
+                    <button onclick="completeTrip()">Finaliser le trajet</button>
+                    <div id="completeTripResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Trajets complétés</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips?status=completed</div>
+                    <div class="endpoint-description">Récupère tous les trajets complétés</div>
+                    <button onclick="getCompletedTrips()">Voir les trajets complétés</button>
+                    <div id="getCompletedTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tests Additionnels -->
+        <div class="section">
+            <h2>🔧 Tests Additionnels</h2>
+            <div class="endpoints-grid">
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Recherche de trajets</h3>
+                        <span class="method-badge method-get">GET</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/trips/search</div>
+                    <div class="endpoint-description">Recherche avancée de trajets</div>
+                    <div class="form-inputs">
+                        <input type="number" id="searchChildId" placeholder="ID Enfant" value="1">
+                        <input type="number" id="searchSchoolId" placeholder="ID École" value="1">
+                        <input type="text" id="searchHomeLat" placeholder="Latitude domicile" value="14.7167">
+                        <input type="text" id="searchHomeLng" placeholder="Longitude domicile" value="-17.4677">
+                        <input type="date" id="searchDate" placeholder="Date">
+                    </div>
+                    <button onclick="searchTrips()">Rechercher</button>
+                    <div id="searchTripsResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Annuler une réservation</h3>
+                        <span class="method-badge method-delete">DELETE</span>
+                    </div>
+                    <div class="endpoint-path">/api/parents/reservations/{tripId}/{childId}</div>
+                    <div class="endpoint-description">Annule une réservation</div>
+                    <div class="form-inputs">
+                        <input type="number" id="cancelReservationTripId" placeholder="ID Trajet" value="">
+                        <input type="number" id="cancelReservationChildId" placeholder="ID Enfant" value="1">
+                    </div>
+                    <button onclick="cancelReservation()">Annuler la réservation</button>
+                    <div id="cancelReservationResponse" class="response-section" style="display:none;"></div>
+                </div>
+
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <h3>Annuler un trajet (Chauffeur)</h3>
+                        <span class="method-badge method-put">PUT</span>
+                    </div>
+                    <div class="endpoint-path">/api/drivers/trips/{id}/canceled</div>
+                    <div class="endpoint-description">Annule un trajet</div>
+                    <div class="form-inputs">
+                        <input type="number" id="cancelTripId" placeholder="ID du trajet" value="">
+                    </div>
+                    <button onclick="cancelTrip()">Annuler le trajet</button>
+                    <div id="cancelTripResponse" class="response-section" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        let baseUrl = 'http://86.106.181.31:3000';
+        let driverToken = '';
+        let parentToken = '';
+        let adminToken = '';
+        let tripId = '';
+        let realtimeInterval = null;
+
+        // Détecter si le fichier est ouvert via file://
+        function checkFileProtocol() {
+            if (window.location.protocol === 'file:') {
+                const warning = document.createElement('div');
+                warning.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #f44336; color: white; padding: 15px; text-align: center; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.3);';
+                warning.innerHTML = `
+                    ⚠️ <strong>ATTENTION :</strong> Ce fichier est ouvert via file:// (double-clic). 
+                    Les requêtes CORS ne fonctionneront pas ! 
+                    <strong>Utilisez un serveur HTTP local</strong> (Live Server, Python http.server, etc.)
+                    <button onclick="this.parentElement.remove()" style="margin-left: 10px; padding: 5px 10px; background: white; color: #f44336; border: none; border-radius: 3px; cursor: pointer;">Fermer</button>
+                `;
+                document.body.insertBefore(warning, document.body.firstChild);
+            }
+        }
+
+        // Initialiser les dates par défaut
+        window.onload = function() {
+            checkFileProtocol();
+            
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(8, 0, 0, 0);
+            
+            const returnTime = new Date(tomorrow);
+            returnTime.setHours(16, 0, 0, 0);
+
+            const formatDateTimeLocal = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            };
+
+            document.getElementById('tripDepartureTime').value = formatDateTimeLocal(tomorrow);
+            document.getElementById('tripReturnTime').value = formatDateTimeLocal(returnTime);
+            document.getElementById('adminTripDepartureTime').value = formatDateTimeLocal(tomorrow);
+            document.getElementById('adminTripReturnTime').value = formatDateTimeLocal(returnTime);
+            
+            const searchDate = new Date();
+            searchDate.setDate(searchDate.getDate() + 1);
+            document.getElementById('searchDate').value = searchDate.toISOString().split('T')[0];
+        };
+
+        // Fonction utilitaire pour les requêtes
+        async function makeRequest(method, url, body = null, token = null) {
+            baseUrl = document.getElementById('baseUrl').value || 'http://86.106.181.31:3000';
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const options = {
+                method: method,
+                headers: headers,
+                mode: 'cors', // Explicitement activer CORS
+                credentials: 'omit' // Ne pas envoyer les credentials pour éviter les problèmes CORS
+            };
+
+            if (body && method !== 'GET') {
+                options.body = JSON.stringify(body);
+            }
+
+            const fullUrl = `${baseUrl}${url}`;
+            console.log(`[${method}] ${fullUrl}`, body ? { body } : '');
+            console.log('Options:', options);
+
+            try {
+                // Pour les requêtes POST/PUT, d'abord tester OPTIONS (preflight)
+                if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && !token) {
+                    try {
+                        const preflightResponse = await fetch(fullUrl, {
+                            method: 'OPTIONS',
+                            mode: 'cors',
+                            headers: {
+                                'Origin': window.location.origin,
+                                'Access-Control-Request-Method': method,
+                                'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                            }
+                        });
+                        console.log('Preflight OPTIONS:', preflightResponse.status, preflightResponse.headers.get('Access-Control-Allow-Origin'));
+                    } catch (preflightError) {
+                        console.warn('Preflight OPTIONS failed:', preflightError);
+                    }
+                }
+
+                const response = await fetch(fullUrl, options);
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                // Vérifier si la réponse est OK avant de parser JSON
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        data = { error: 'Réponse non-JSON', text: await response.text() };
+                    }
+                } else {
+                    data = { error: 'Réponse non-JSON', status: response.status, statusText: response.statusText };
+                }
+                
+                return { status: response.status, data, headers: Object.fromEntries(response.headers.entries()) };
+            } catch (error) {
+                console.error('Erreur fetch complète:', error);
+                console.error('Type:', error.name);
+                console.error('Message:', error.message);
+                console.error('Stack:', error.stack);
+                
+                let errorMessage = error.message;
+                let errorDetails = {
+                    type: error.name,
+                    message: error.message,
+                    url: fullUrl,
+                    method: method,
+                    origin: window.location.origin,
+                    protocol: window.location.protocol
+                };
+                
+                // Détecter les erreurs CORS spécifiques
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.name === 'TypeError') {
+                    errorMessage = `Erreur de connexion CORS/Network détectée`;
+                    errorDetails.suggestions = [
+                        `1. Vérifiez que le serveur est accessible : ${baseUrl}`,
+                        `2. Testez dans un autre navigateur ou désactivez les extensions`,
+                        `3. Vérifiez les logs du serveur pour voir si la requête arrive`,
+                        `4. Si vous êtes sur file://, utilisez un serveur HTTP local`,
+                        `5. Vérifiez que le serveur répond aux requêtes OPTIONS (preflight)`,
+                        `6. Vérifiez votre firewall/antivirus`
+                    ];
+                }
+                
+                // Tester si le serveur est accessible avec une requête simple
+                if (error.message.includes('Failed to fetch')) {
+                    console.log('Tentative de test de connexion simple...');
+                    try {
+                        const testResponse = await fetch(`${baseUrl}/api/test`, {
+                            method: 'GET',
+                            mode: 'cors',
+                            cache: 'no-cache'
+                        });
+                        console.log('Test de connexion réussi:', testResponse.status);
+                        errorDetails.serverReachable = true;
+                    } catch (testError) {
+                        console.error('Test de connexion échoué:', testError);
+                        errorDetails.serverReachable = false;
+                        errorDetails.testError = testError.message;
+                    }
+                }
+                
+                return { 
+                    status: 0, 
+                    data: { 
+                        error: errorMessage,
+                        ...errorDetails
+                    } 
+                };
+            }
+        }
+
+        // Afficher la réponse
+        function displayResponse(elementId, response, success = true) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            
+            const statusClass = response.status >= 200 && response.status < 300 ? 'status-success' : 'status-error';
+            const statusText = response.status >= 200 && response.status < 300 ? 'SUCCESS' : 'ERROR';
+            
+            // Informations supplémentaires pour le débogage
+            let debugInfo = '';
+            if (response.status === 0) {
+                debugInfo = `
+                    <div class="error-message" style="margin-top: 10px;">
+                        <strong>⚠️ Erreur de connexion détectée</strong><br>
+                        ${response.data.details || ''}<br>
+                        <small>Type: ${response.data.type || 'Unknown'}</small>
+                    </div>
+                `;
+            }
+            
+            element.innerHTML = `
+                <div class="response-header">
+                    <span>Réponse:</span>
+                    <span class="status-badge ${statusClass}">${response.status || 'N/A'} ${statusText}</span>
+                </div>
+                ${debugInfo}
+                <div class="response-body">${JSON.stringify(response.data, null, 2)}</div>
+            `;
+        }
+
+        // Authentification
+        async function loginDriver() {
+            const email = document.getElementById('driverEmail').value;
+            const password = document.getElementById('driverPassword').value;
+            const response = await makeRequest('POST', '/api/auth/login/driver', { email, password });
+            
+            if (response.status === 200 && response.data.token) {
+                driverToken = response.data.token;
+                document.getElementById('driverToken').textContent = driverToken.substring(0, 50) + '...';
+                document.getElementById('driverToken').parentElement.classList.add('success-message');
+            }
+            displayResponse('driverLoginResponse', response);
+        }
+
+        async function loginParent() {
+            const email = document.getElementById('parentEmail').value;
+            const password = document.getElementById('parentPassword').value;
+            const response = await makeRequest('POST', '/api/auth/login/parent', { email, password });
+            
+            if (response.status === 200 && response.data.token) {
+                parentToken = response.data.token;
+                document.getElementById('parentToken').textContent = parentToken.substring(0, 50) + '...';
+                document.getElementById('parentToken').parentElement.classList.add('success-message');
+            }
+            displayResponse('parentLoginResponse', response);
+        }
+
+        async function loginAdmin() {
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            const response = await makeRequest('POST', '/api/auth/login', { email, password });
+            
+            if (response.status === 200 && response.data.token) {
+                adminToken = response.data.token;
+                document.getElementById('adminToken').textContent = adminToken.substring(0, 50) + '...';
+                document.getElementById('adminToken').parentElement.classList.add('success-message');
+            }
+            displayResponse('adminLoginResponse', response);
+        }
+
+        // Création de trajet
+        async function createTripDriver() {
+            const departureTime = document.getElementById('tripDepartureTime').value;
+            const returnTime = document.getElementById('tripReturnTime').value;
+            
+            const body = {
+                start_point: document.getElementById('tripStartPoint').value,
+                end_point: document.getElementById('tripEndPoint').value,
+                departure_time: new Date(departureTime).toISOString(),
+                return_departure_time: returnTime ? new Date(returnTime).toISOString() : null,
+                capacity_max: parseInt(document.getElementById('tripCapacity').value),
+                school_id: parseInt(document.getElementById('tripSchoolId').value),
+                is_recurring: false
+            };
+
+            const response = await makeRequest('POST', '/api/drivers/trips', body, driverToken);
+            
+            if (response.status === 201) {
+                const tripIdValue = response.data.data?.id || response.data.id;
+                if (tripIdValue) {
+                    tripId = tripIdValue;
+                    document.getElementById('tripId').textContent = tripId;
+                    // Mettre à jour tous les champs trip_id
+                    document.getElementById('tripDetailsId').value = tripId;
+                    document.getElementById('reservationTripId').value = tripId;
+                    document.getElementById('startTripId').value = tripId;
+                    document.getElementById('realtimeTripId').value = tripId;
+                    document.getElementById('completeTripId').value = tripId;
+                    document.getElementById('cancelTripId').value = tripId;
+                    document.getElementById('cancelReservationTripId').value = tripId;
+                }
+            }
+            displayResponse('createTripDriverResponse', response);
+        }
+
+        async function createTripAdmin() {
+            const departureTime = document.getElementById('adminTripDepartureTime').value;
+            const returnTime = document.getElementById('adminTripReturnTime').value;
+            
+            const body = {
+                driver_id: parseInt(document.getElementById('adminTripDriverId').value),
+                school_id: parseInt(document.getElementById('adminTripSchoolId').value),
+                start_point: document.getElementById('adminTripStartPoint').value,
+                end_point: document.getElementById('adminTripEndPoint').value,
+                departure_time: new Date(departureTime).toISOString(),
+                return_departure_time: returnTime ? new Date(returnTime).toISOString() : null,
+                capacity_max: parseInt(document.getElementById('adminTripCapacity').value),
+                is_recurring: false
+            };
+
+            const response = await makeRequest('POST', '/api/trips', body, adminToken);
+            
+            if (response.status === 201) {
+                const tripIdValue = response.data.id;
+                if (tripIdValue) {
+                    tripId = tripIdValue;
+                    document.getElementById('tripId').textContent = tripId;
+                    // Mettre à jour tous les champs trip_id
+                    document.getElementById('tripDetailsId').value = tripId;
+                    document.getElementById('reservationTripId').value = tripId;
+                    document.getElementById('startTripId').value = tripId;
+                    document.getElementById('realtimeTripId').value = tripId;
+                    document.getElementById('completeTripId').value = tripId;
+                    document.getElementById('cancelTripId').value = tripId;
+                    document.getElementById('cancelReservationTripId').value = tripId;
+                }
+            }
+            displayResponse('createTripAdminResponse', response);
+        }
+
+        async function getDriverTrips() {
+            const status = document.getElementById('driverTripStatus').value;
+            const url = status ? `/api/drivers/trips?status=${status}` : '/api/drivers/trips';
+            const response = await makeRequest('GET', url, null, driverToken);
+            displayResponse('getDriverTripsResponse', response);
+        }
+
+        // Réservation
+        async function getAvailableTrips() {
+            const params = new URLSearchParams();
+            const schoolId = document.getElementById('availableSchoolId').value;
+            const startPoint = document.getElementById('availableStartPoint').value;
+            const endPoint = document.getElementById('availableEndPoint').value;
+            const minSeats = document.getElementById('minAvailableSeats').value || '1';
+            
+            if (schoolId) params.append('school_id', schoolId);
+            if (startPoint) params.append('start_point', startPoint);
+            if (endPoint) params.append('end_point', endPoint);
+            params.append('min_available_seats', minSeats);
+            
+            const url = `/api/parents/trips/available?${params.toString()}`;
+            const response = await makeRequest('GET', url, null, parentToken);
+            displayResponse('getAvailableTripsResponse', response);
+        }
+
+        async function getTripDetails() {
+            const tripIdValue = document.getElementById('tripDetailsId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            const response = await makeRequest('GET', `/api/parents/trips/${tripIdValue}/details`, null, parentToken);
+            displayResponse('getTripDetailsResponse', response);
+        }
+
+        async function createReservation() {
+            const tripIdValue = document.getElementById('reservationTripId').value || tripId;
+            const childIdsStr = document.getElementById('reservationChildIds').value;
+            const isRecurring = document.getElementById('reservationRecurring').checked;
+            
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            
+            const childIds = childIdsStr.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            
+            if (childIds.length === 0) {
+                alert('Veuillez entrer au moins un ID d\'enfant');
+                return;
+            }
+
+            const body = {
+                trip_id: parseInt(tripIdValue),
+                child_ids: childIds,
+                is_recurring: isRecurring
+            };
+
+            const response = await makeRequest('POST', '/api/parents/reservations', body, parentToken);
+            displayResponse('createReservationResponse', response);
+        }
+
+        async function getMyReservations() {
+            const status = document.getElementById('reservationStatus').value;
+            const url = status === 'all' ? '/api/parents/reservations' : `/api/parents/reservations?status=${status}`;
+            const response = await makeRequest('GET', url, null, parentToken);
+            displayResponse('getMyReservationsResponse', response);
+        }
+
+        async function getMyTrips() {
+            const response = await makeRequest('GET', '/api/parents/trips', null, parentToken);
+            displayResponse('getMyTripsResponse', response);
+        }
+
+        // Démarrage du trajet
+        async function startTrip() {
+            const tripIdValue = document.getElementById('startTripId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            const response = await makeRequest('PUT', `/api/drivers/trips/${tripIdValue}/start`, null, driverToken);
+            displayResponse('startTripResponse', response);
+        }
+
+        async function getInProgressTrips() {
+            const response = await makeRequest('GET', '/api/drivers/trips?status=in_progress', null, driverToken);
+            displayResponse('getInProgressTripsResponse', response);
+        }
+
+        // Suivi temps réel
+        async function getRealtimeTrip() {
+            const tripIdValue = document.getElementById('realtimeTripId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            const response = await makeRequest('GET', `/api/parents/trips/${tripIdValue}/realtime`, null, parentToken);
+            displayResponse('getRealtimeTripResponse', response);
+        }
+
+        function startRealtimeTracking() {
+            const tripIdValue = document.getElementById('realtimeTripId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            
+            if (realtimeInterval) {
+                clearInterval(realtimeInterval);
+                realtimeInterval = null;
+                return;
+            }
+            
+            realtimeInterval = setInterval(() => {
+                getRealtimeTrip();
+            }, 5000);
+        }
+
+        // Finalisation
+        async function completeTrip() {
+            const tripIdValue = document.getElementById('completeTripId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            const response = await makeRequest('PUT', `/api/drivers/trips/${tripIdValue}/completed`, null, driverToken);
+            displayResponse('completeTripResponse', response);
+        }
+
+        async function getCompletedTrips() {
+            const response = await makeRequest('GET', '/api/drivers/trips?status=completed', null, driverToken);
+            displayResponse('getCompletedTripsResponse', response);
+        }
+
+        // Tests additionnels
+        async function searchTrips() {
+            const params = new URLSearchParams();
+            const childId = document.getElementById('searchChildId').value;
+            const schoolId = document.getElementById('searchSchoolId').value;
+            const homeLat = document.getElementById('searchHomeLat').value;
+            const homeLng = document.getElementById('searchHomeLng').value;
+            const date = document.getElementById('searchDate').value;
+            
+            if (childId) params.append('child_id', childId);
+            if (schoolId) params.append('school_id', schoolId);
+            if (homeLat) params.append('home_lat', homeLat);
+            if (homeLng) params.append('home_lng', homeLng);
+            if (date) params.append('date', date);
+            
+            const url = `/api/parents/trips/search?${params.toString()}`;
+            const response = await makeRequest('GET', url, null, parentToken);
+            displayResponse('searchTripsResponse', response);
+        }
+
+        async function cancelReservation() {
+            const tripIdValue = document.getElementById('cancelReservationTripId').value || tripId;
+            const childId = document.getElementById('cancelReservationChildId').value;
+            
+            if (!tripIdValue || !childId) {
+                alert('Veuillez entrer l\'ID du trajet et l\'ID de l\'enfant');
+                return;
+            }
+            
+            const response = await makeRequest('DELETE', `/api/parents/reservations/${tripIdValue}/${childId}`, null, parentToken);
+            displayResponse('cancelReservationResponse', response);
+        }
+
+        async function cancelTrip() {
+            const tripIdValue = document.getElementById('cancelTripId').value || tripId;
+            if (!tripIdValue) {
+                alert('Veuillez entrer un ID de trajet');
+                return;
+            }
+            const response = await makeRequest('PUT', `/api/drivers/trips/${tripIdValue}/canceled`, null, driverToken);
+            displayResponse('cancelTripResponse', response);
+        }
+
+        // Tester la connexion au serveur
+        async function testConnection() {
+            const testDiv = document.getElementById('connectionTest');
+            testDiv.innerHTML = '<div class="loading"></div> Test de connexion en cours...';
+            
+            baseUrl = document.getElementById('baseUrl').value || 'http://86.106.181.31:3000';
+            
+            const results = [];
+            
+            try {
+                // Test 1: OPTIONS (preflight)
+                results.push('Test OPTIONS (preflight)...');
+                testDiv.innerHTML = results.join('<br>') + '<br><div class="loading"></div>';
+                
+                const optionsResponse = await fetch(`${baseUrl}/api/test`, {
+                    method: 'OPTIONS',
+                    mode: 'cors',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                
+                const corsOrigin = optionsResponse.headers.get('Access-Control-Allow-Origin');
+                results.push(`✅ OPTIONS: ${optionsResponse.status} | CORS Origin: ${corsOrigin || 'Non défini'}`);
+                testDiv.innerHTML = results.join('<br>') + '<br><div class="loading"></div>';
+                
+                // Test 2: GET simple
+                results.push('Test GET...');
+                testDiv.innerHTML = results.join('<br>') + '<br><div class="loading"></div>';
+                
+                const getResponse = await fetch(`${baseUrl}/api/test`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                const data = await getResponse.json();
+                results.push(`✅ GET: ${getResponse.status} | Réponse reçue`);
+                
+                testDiv.innerHTML = `
+                    <div class="success-message">
+                        ✅ <strong>Connexion réussie !</strong><br>
+                        ${results.join('<br>')}<br><br>
+                        <strong>Réponse du serveur:</strong><br>
+                        <pre style="background: white; padding: 10px; border-radius: 5px; overflow: auto; max-height: 200px;">${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                results.push(`❌ Erreur: ${error.message}`);
+                
+                testDiv.innerHTML = `
+                    <div class="error-message">
+                        ❌ <strong>Erreur de connexion</strong><br>
+                        ${results.join('<br>')}<br><br>
+                        <strong>Détails de l'erreur:</strong><br>
+                        Type: ${error.name}<br>
+                        Message: ${error.message}<br><br>
+                        <strong>Solutions :</strong><br>
+                        1. Vérifiez que le serveur est démarré à ${baseUrl}<br>
+                        2. Vérifiez votre connexion réseau<br>
+                        3. Ouvrez ce fichier via un serveur HTTP (pas file://)<br>
+                        4. Vérifiez les logs du serveur<br>
+                        5. Testez dans un autre navigateur
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
+

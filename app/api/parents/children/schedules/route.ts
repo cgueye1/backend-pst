@@ -2,16 +2,58 @@
  * @swagger
  * /api/parents/children/schedules:
  *   get:
- *     summary: Récupérer les horaires d'un enfant
- *     description: Retourne la liste de tous les enfants avec leurs horaires personnalisés
- *     tags: [Parents]
+ *     summary: Récupérer les horaires des enfants
+ *     description: Récupère les horaires personnalisés de tous les enfants du parent.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   put:
- *     summary: Personnaliser les horaires par jour pour un enfant
- *     tags: [Parents]
+ *     summary: Mettre à jour les horaires d'un enfant
+ *     description: Met à jour les horaires personnalisés d'un enfant.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - child_id
+ *               - schedule
+ *             properties:
+ *               child_id:
+ *                 type: integer
+ *               schedule:
+ *                 type: object
+ *                 description: Horaires hebdomadaires en JSON
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 import { NextRequest, NextResponse } from 'next/server';

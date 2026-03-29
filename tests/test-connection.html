@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Connexion API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test de Connexion API</h1>
+    
+    <div class="test-box">
+        <h2>Configuration</h2>
+        <label>URL du serveur API:</label>
+        <input type="text" id="serverUrl" value="http://86.106.181.31:3000" placeholder="http://86.106.181.31:3000">
+        <button onclick="runAllTests()">🚀 Lancer tous les tests</button>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 1: Connexion de base (GET /api/test)</h2>
+        <button onclick="test1()">Tester</button>
+        <div id="result1"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 2: Preflight CORS (OPTIONS)</h2>
+        <button onclick="test2()">Tester</button>
+        <div id="result2"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 3: Login Driver (POST)</h2>
+        <button onclick="test3()">Tester</button>
+        <div id="result3"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 4: Connectivité réseau de base</h2>
+        <button onclick="test4()">Tester la connectivité</button>
+        <div id="result4"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Informations du navigateur</h2>
+        <div id="browserInfo"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>🔧 Solutions possibles</h2>
+        <div class="info">
+            <strong>Si toutes les requêtes échouent avec "Failed to fetch":</strong><br><br>
+            1. <strong>Vérifiez que le serveur est démarré:</strong><br>
+               - Connectez-vous au serveur et vérifiez que Next.js tourne sur le port 3000<br>
+               - Testez: <code>curl http://86.106.181.31:3000/api/test</code><br><br>
+            
+            2. <strong>Problème de firewall:</strong><br>
+               - Le port 3000 peut être bloqué par un firewall<br>
+               - Vérifiez les règles de firewall sur le serveur<br><br>
+            
+            3. <strong>Problème de réseau:</strong><br>
+               - Vous n'êtes peut-être pas sur le même réseau que le serveur<br>
+               - Essayez d'accéder directement: <a href="http://86.106.181.31:3000/api/test" target="_blank">http://86.106.181.31:3000/api/test</a><br><br>
+            
+            4. <strong>Serveur non accessible depuis Internet:</strong><br>
+               - Le serveur peut être configuré pour n'accepter que les connexions locales<br>
+               - Vérifiez la configuration Next.js (hostname, etc.)<br><br>
+            
+            5. <strong>Utilisez un proxy ou VPN:</strong><br>
+               - Si le serveur est sur un réseau privé, utilisez un tunnel SSH ou VPN
+        </div>
+    </div>
+
+    <script>
+        const serverUrl = document.getElementById('serverUrl');
+        
+        window.onload = function() {
+            displayBrowserInfo();
+            
+            // Détecter file://
+            if (window.location.protocol === 'file:') {
+                document.body.insertAdjacentHTML('afterbegin', `
+                    <div class="error">
+                        ⚠️ <strong>ATTENTION:</strong> Ce fichier est ouvert via file:// 
+                        Les requêtes CORS ne fonctionneront probablement pas ! 
+                        Utilisez un serveur HTTP local (Live Server, Python http.server, etc.)
+                    </div>
+                `);
+            }
+        };
+
+        function displayBrowserInfo() {
+            const info = {
+                'Protocole': window.location.protocol,
+                'Origine': window.location.origin,
+                'URL complète': window.location.href,
+                'User Agent': navigator.userAgent.substring(0, 100) + '...'
+            };
+            
+            document.getElementById('browserInfo').innerHTML = `
+                <pre>${JSON.stringify(info, null, 2)}</pre>
+            `;
+        }
+
+        async function test1() {
+            const url = serverUrl.value + '/api/test';
+            const resultDiv = document.getElementById('result1');
+            resultDiv.innerHTML = '<div class="info">Test en cours...</div>';
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                const data = await response.json();
+                const headers = Object.fromEntries(response.headers.entries());
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ <strong>Succès!</strong><br>
+                        Status: ${response.status}<br>
+                        CORS Origin: ${headers['access-control-allow-origin'] || 'Non défini'}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ <strong>Erreur:</strong><br>
+                        ${error.message}<br>
+                        Type: ${error.name}
+                    </div>
+                `;
+            }
+        }
+
+        async function test2() {
+            const url = serverUrl.value + '/api/test';
+            const resultDiv = document.getElementById('result2');
+            resultDiv.innerHTML = '<div class="info">Test en cours...</div>';
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'OPTIONS',
+                    mode: 'cors',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                    }
+                });
+                
+                const headers = Object.fromEntries(response.headers.entries());
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ <strong>Preflight réussi!</strong><br>
+                        Status: ${response.status}<br>
+                        CORS Origin: ${headers['access-control-allow-origin'] || 'Non défini'}<br>
+                        CORS Methods: ${headers['access-control-allow-methods'] || 'Non défini'}<br>
+                        CORS Headers: ${headers['access-control-allow-headers'] || 'Non défini'}<br>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ <strong>Erreur Preflight:</strong><br>
+                        ${error.message}<br>
+                        Type: ${error.name}
+                    </div>
+                `;
+            }
+        }
+
+        async function test3() {
+            const url = serverUrl.value + '/api/auth/login/driver';
+            const resultDiv = document.getElementById('result3');
+            resultDiv.innerHTML = '<div class="info">Test en cours...</div>';
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'driver@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                const headers = Object.fromEntries(response.headers.entries());
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ <strong>Login réussi!</strong><br>
+                            Status: ${response.status}<br>
+                            CORS Origin: ${headers['access-control-allow-origin'] || 'Non défini'}<br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ⚠️ <strong>Réponse reçue mais erreur:</strong><br>
+                            Status: ${response.status}<br>
+                            CORS Origin: ${headers['access-control-allow-origin'] || 'Non défini'}<br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ <strong>Erreur:</strong><br>
+                        ${error.message}<br>
+                        Type: ${error.name}<br><br>
+                        <strong>Possible cause:</strong> Problème CORS ou serveur inaccessible
+                    </div>
+                `;
+            }
+        }
+
+        async function test4() {
+            const url = serverUrl.value;
+            const resultDiv = document.getElementById('result4');
+            resultDiv.innerHTML = '<div class="info">Test de connectivité en cours...</div>';
+            
+            const tests = [];
+            
+            // Test 1: Ping DNS
+            try {
+                const hostname = new URL(url).hostname;
+                tests.push(`✅ Hostname résolu: ${hostname}`);
+            } catch (e) {
+                tests.push(`❌ Erreur URL: ${e.message}`);
+            }
+            
+            // Test 2: Tentative de connexion avec timeout court
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            try {
+                const response = await fetch(url + '/api/test', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: controller.signal,
+                    cache: 'no-cache'
+                });
+                clearTimeout(timeoutId);
+                tests.push(`✅ Connexion réussie: Status ${response.status}`);
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    tests.push(`❌ Timeout: Le serveur ne répond pas dans les 5 secondes`);
+                } else if (error.message.includes('Failed to fetch')) {
+                    tests.push(`❌ Failed to fetch: Le serveur n'est pas accessible`);
+                    tests.push(`   - Vérifiez que le serveur est démarré`);
+                    tests.push(`   - Vérifiez votre connexion réseau`);
+                    tests.push(`   - Vérifiez les règles de firewall`);
+                } else {
+                    tests.push(`❌ Erreur: ${error.message}`);
+                }
+            }
+            
+            // Test 3: Vérifier si on peut accéder directement
+            tests.push(`\n💡 Essayez d'ouvrir directement: <a href="${url}/api/test" target="_blank">${url}/api/test</a>`);
+            
+            resultDiv.innerHTML = `
+                <div class="${tests.some(t => t.includes('❌')) ? 'error' : 'success'}">
+                    <strong>Résultats des tests:</strong><br>
+                    ${tests.join('<br>')}
+                </div>
+            `;
+        }
+
+        async function runAllTests() {
+            await test4();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await test1();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await test2();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await test3();
+        }
+    </script>
+</body>
+</html>
+

@@ -2,26 +2,89 @@
  * @swagger
  * /api/notifications:
  *   get:
- *     summary: Récupérer la liste des notifications
- *     description: >
- *       Retourne les notifications actives avec pagination, recherche
- *       et statistiques de lecture (destinataires / lus).
- *     tags: [ADMIN]
+ *     summary: Récupérer les notifications
+ *     description: Récupère les notifications de l'utilisateur connecté.
+ *     tags: ["Notifications"]
  *     security:
  *       - bearerAuth: []
-
+ *     parameters:
+ *       - in: query
+ *         name: unread_only
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: Filtrer uniquement les non lues
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: limit
+ *       - in: query
+ *         name: offset
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: offset
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   post:
  *     summary: Créer une notification
- *     description: >
- *       Crée une notification émise par l'utilisateur connecté.
- *       Elle peut être envoyée à tous les utilisateurs ou à des utilisateurs spécifiques.
- *     tags: [ADMIN]
+ *     description: Crée une nouvelle notification. Réservé aux administrateurs.
+ *     tags: ["Notifications"]
  *     security:
  *       - bearerAuth: []
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - libelle
+ *             properties:
+ *               libelle:
+ *                 type: string
+ *                 example: "Nouvelle notification"
+ *               description:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: ["info","warning","error","success"]
+ *               destinataire_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: IDs des destinataires (vide = tous)
+ *               image_url:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
-
-
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';

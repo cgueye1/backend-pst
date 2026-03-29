@@ -13,7 +13,9 @@ export function setCorsHeaders(response: NextResponse, origin: string | null): N
         'http://localhost:3000',
         'http://localhost:4201',
         'http://127.0.0.1:4200',
-        'http://127.0.0.1:3000'
+        'http://127.0.0.1:3000',
+        'http://localhost:8080', // Pour test-app
+        'http://127.0.0.1:8080', // Pour test-app
     ];
 
     // En production, utiliser ALLOWED_ORIGINS si défini

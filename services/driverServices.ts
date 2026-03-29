@@ -50,15 +50,23 @@ export const getAllDrivers = async () => {
             u.name,
             u.email,
             u.phone,
+            u.photo_profil AS user_photo_profil,
+            d.photo_profil AS driver_photo_profil,
             COALESCE(COUNT(t.id), 0)::integer AS trips_count
         FROM drivers d
                  JOIN users u ON u.id = d.user_id
                  LEFT JOIN trips t ON t.driver_id = d.id
-        GROUP BY d.id, d.status, d.vehicle_brand, d.vehicle_color, d.vehicle_plate, d.license_document, d.id_document, d.vehicle_photo, u.name, u.email, u.phone
+        GROUP BY d.id, d.status, d.vehicle_brand, d.vehicle_color, d.vehicle_plate, d.license_document, d.id_document, d.vehicle_photo, u.name, u.email, u.phone, u.photo_profil, d.photo_profil
         ORDER BY d.created_at DESC
     `);
 
-    return res.rows;
+    // Utiliser la photo de users en priorité, sinon celle de drivers
+    return res.rows.map(driver => {
+        driver.photo_profil = driver.user_photo_profil || driver.driver_photo_profil || null;
+        delete driver.user_photo_profil;
+        delete driver.driver_photo_profil;
+        return driver;
+    });
 };
 
 /* GET DRIVER BY ID */
@@ -75,6 +83,7 @@ export const getDriverById = async (id: number) => {
                 u.email,
                 u.phone,
                 u.address,
+                u.photo_profil AS user_photo_profil,
 
                 d.vehicle_brand,
                 d.vehicle_color,
@@ -82,6 +91,7 @@ export const getDriverById = async (id: number) => {
                 d.license_document,
                 d.id_document,
                 d.vehicle_photo,
+                d.photo_profil AS driver_photo_profil,
 
                 COALESCE(COUNT(t.id), 0)::integer AS trips_count
             FROM drivers d
@@ -89,10 +99,19 @@ export const getDriverById = async (id: number) => {
                      LEFT JOIN trips t ON t.driver_id = d.id
             WHERE d.id = $1
             GROUP BY
-                d.id, u.id
+                d.id, u.id, u.photo_profil, d.photo_profil
         `,
         [id]
     );
+
+    if (res.rows[0]) {
+        // Utiliser la photo de users en priorité, sinon celle de drivers
+        const driver = res.rows[0];
+        driver.photo_profil = driver.user_photo_profil || driver.driver_photo_profil || null;
+        // Nettoyer les champs intermédiaires
+        delete driver.user_photo_profil;
+        delete driver.driver_photo_profil;
+    }
 
     return res.rows[0] || null;
 };

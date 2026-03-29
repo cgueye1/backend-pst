@@ -15,8 +15,18 @@ const poolConfig: {
     connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || "2000"), // 2 secondes
 };
 
-// Configuration SSL pour la production (Vercel, etc.)
-if (process.env.NODE_ENV === 'production' || process.env.DATABASE_SSL === 'true') {
+// Configuration SSL
+// Priorité: DATABASE_SSL > NODE_ENV
+// Si DATABASE_SSL est explicitement défini, on le respecte
+// Sinon, on active SSL en production (pour Vercel, etc.)
+if (process.env.DATABASE_SSL !== undefined) {
+    // DATABASE_SSL est défini explicitement
+    if (process.env.DATABASE_SSL === 'true') {
+        poolConfig.ssl = { rejectUnauthorized: false };
+    }
+    // Si DATABASE_SSL === 'false', on ne configure pas SSL (undefined)
+} else if (process.env.NODE_ENV === 'production') {
+    // Fallback: SSL en production si DATABASE_SSL n'est pas défini
     poolConfig.ssl = { rejectUnauthorized: false };
 }
 

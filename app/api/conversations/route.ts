@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { emitToUser } from "@/lib/emitters";
@@ -9,10 +9,67 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/conversations:
  *   get:
  *     summary: Récupérer toutes les conversations de l'utilisateur connecté
- *     tags: [Messagerie]
+ *     description: Récupère la liste des conversations (directes et de groupe) de l'utilisateur authentifié.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: archived
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: Filtrer les conversations archivées
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ *   post:
+ *     summary: Créer une conversation directe
+ *     description: Crée une nouvelle conversation directe entre deux utilisateurs.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - other_user_id
+ *             properties:
+ *               other_user_id:
+ *                 type: integer
+ *                 description: ID de l'autre utilisateur
+ *               initial_message:
+ *                 type: string
+ *                 description: Message initial (optionnel)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 export async function OPTIONS(req: NextRequest) {
-    return corsOptions(req);
+  return corsOptions(req);
 }
 
 export async function GET(req: NextRequest) {

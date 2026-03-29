@@ -7,8 +7,45 @@ import { query } from "@/lib/db";
  * /api/conversations/{id}/mute:
  *   patch:
  *     summary: Activer ou désactiver les notifications d'une conversation
- *     tags: [Messagerie]
+ *     description: Met à jour le statut de notification (muet/non muet) d'une conversation pour l'utilisateur connecté.
+ *     tags: ["Messagerie"]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la conversation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               muted:
+ *                 type: boolean
+ *                 description: true pour couper les notifications, false pour les activer
+ *                 default: true
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
+
 type Params = {
     params: Promise<{ id: string }>;
 };

@@ -1,0 +1,664 @@
+{
+	"info": {
+		"_postman_id": "transport-school-api-test",
+		"name": "Transport School API - Test Complet",
+		"description": "Collection de test pour tous les endpoints du système de transport scolaire\n\nFlux de test :\n1. Authentification (Chauffeur, Parent, Admin)\n2. Création d'un trajet aller-retour par le chauffeur\n3. Récupération des trajets disponibles par le parent\n4. Réservation par le parent\n5. Démarrage du trajet par le chauffeur\n6. Suivi en temps réel\n7. Finalisation du trajet",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentification",
+			"item": [
+				{
+					"name": "Login Chauffeur",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set('driver_token', jsonData.token);",
+									"        pm.environment.set('driver_id', jsonData.user.id);",
+									"        console.log('Token chauffeur sauvegardé');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"driver@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/driver",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login", "driver"]
+						},
+						"description": "Connexion du chauffeur pour obtenir le token d'authentification"
+					}
+				},
+				{
+					"name": "Login Parent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set('parent_token', jsonData.token);",
+									"        pm.environment.set('parent_id', jsonData.user.id);",
+									"        console.log('Token parent sauvegardé');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"parent@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/parent",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login", "parent"]
+						},
+						"description": "Connexion du parent pour obtenir le token d'authentification"
+					}
+				},
+				{
+					"name": "Login Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.environment.set('admin_token', jsonData.token);",
+									"        console.log('Token admin sauvegardé');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Connexion de l'admin pour obtenir le token d'authentification"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Création de Trajet",
+			"item": [
+				{
+					"name": "Créer Trajet Aller-Retour (Chauffeur)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.id) {",
+									"        pm.environment.set('trip_id', jsonData.data.id);",
+									"        console.log('Trajet créé avec ID:', jsonData.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"start_point\": \"DKR\",\n  \"end_point\": \"Yoff\",\n  \"departure_time\": \"2026-02-20T08:00:00Z\",\n  \"return_departure_time\": \"2026-02-20T16:00:00Z\",\n  \"capacity_max\": 9,\n  \"school_id\": 1,\n  \"is_recurring\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips"]
+						},
+						"description": "Création d'un trajet aller-retour par le chauffeur\n- Aller : DKR → Yoff à 8h\n- Retour : Yoff → DKR à 16h\n- Capacité : 9 places"
+					}
+				},
+				{
+					"name": "Créer Trajet Aller-Retour (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.environment.set('trip_id', jsonData.id);",
+									"        console.log('Trajet créé avec ID:', jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"driver_id\": 1,\n  \"school_id\": 1,\n  \"start_point\": \"DKR\",\n  \"end_point\": \"Yoff\",\n  \"departure_time\": \"2026-02-20T08:00:00Z\",\n  \"return_departure_time\": \"2026-02-20T16:00:00Z\",\n  \"capacity_max\": 9,\n  \"is_recurring\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/trips",
+							"host": ["{{base_url}}"],
+							"path": ["api", "trips"]
+						},
+						"description": "Création d'un trajet aller-retour par l'admin"
+					}
+				},
+				{
+					"name": "Récupérer les trajets du chauffeur",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips?status=pending",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips"],
+							"query": [
+								{
+									"key": "status",
+									"value": "pending"
+								}
+							]
+						},
+						"description": "Voir tous les trajets en attente du chauffeur"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Réservation (Parent)",
+			"item": [
+				{
+					"name": "Récupérer les trajets disponibles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/trips/available?min_available_seats=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "trips", "available"],
+							"query": [
+								{
+									"key": "min_available_seats",
+									"value": "1"
+								},
+								{
+									"key": "school_id",
+									"value": "1",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Récupère tous les trajets disponibles avec les informations du chauffeur et du véhicule"
+					}
+				},
+				{
+					"name": "Détails d'un trajet",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/trips/{{trip_id}}/details",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "trips", "{{trip_id}}", "details"]
+						},
+						"description": "Récupère les détails complets d'un trajet spécifique"
+					}
+				},
+				{
+					"name": "Réserver un trajet (Aller-Retour)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.success) {",
+									"        console.log('Réservation réussie:', jsonData.message);",
+									"        console.log('Type de trajet:', jsonData.data.trip_type);",
+									"        console.log('Retour réservé:', jsonData.data.return_reserved);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"trip_id\": {{trip_id}},\n  \"child_ids\": [1],\n  \"is_recurring\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/parents/reservations",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "reservations"]
+						},
+						"description": "Réserve un trajet aller-retour pour un ou plusieurs enfants.\nPour un trajet aller-retour, l'aller ET le retour sont automatiquement réservés."
+					}
+				},
+				{
+					"name": "Voir mes réservations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/reservations?status=all",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "reservations"],
+							"query": [
+								{
+									"key": "status",
+									"value": "all"
+								}
+							]
+						},
+						"description": "Récupère toutes les réservations du parent"
+					}
+				},
+				{
+					"name": "Voir mes trajets",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/trips",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "trips"]
+						},
+						"description": "Récupère tous les trajets où les enfants du parent sont passagers"
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Démarrage du Trajet (Chauffeur)",
+			"item": [
+				{
+					"name": "Démarrer un trajet",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.success) {",
+									"        console.log('Trajet démarré avec succès');",
+									"        console.log('Statut:', jsonData.data.status);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips/{{trip_id}}/start",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips", "{{trip_id}}", "start"]
+						},
+						"description": "Démarre un trajet. Change le statut de 'pending' à 'in_progress'.\nEnvoie des notifications aux parents des enfants réservés."
+					}
+				},
+				{
+					"name": "Voir les trajets en cours",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips?status=in_progress",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips"],
+							"query": [
+								{
+									"key": "status",
+									"value": "in_progress"
+								}
+							]
+						},
+						"description": "Récupère tous les trajets en cours du chauffeur"
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Suivi en Temps Réel (Parent)",
+			"item": [
+				{
+					"name": "Suivi en temps réel du trajet",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/trips/{{trip_id}}/realtime",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "trips", "{{trip_id}}", "realtime"]
+						},
+						"description": "Récupère les informations en temps réel du trajet :\n- Position actuelle du véhicule\n- Statut du trajet\n- Temps écoulé depuis le départ\n- Temps estimé d'arrivée\n- Liste des enfants dans le trajet"
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Finalisation du Trajet (Chauffeur)",
+			"item": [
+				{
+					"name": "Finaliser un trajet",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.success) {",
+									"        console.log('Trajet finalisé avec succès');",
+									"        console.log('Statut:', jsonData.data.status);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips/{{trip_id}}/completed",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips", "{{trip_id}}", "completed"]
+						},
+						"description": "Finalise un trajet. Change le statut de 'in_progress' à 'completed'.\nEnvoie des notifications aux parents."
+					}
+				},
+				{
+					"name": "Voir les trajets complétés",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips?status=completed",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips"],
+							"query": [
+								{
+									"key": "status",
+									"value": "completed"
+								}
+							]
+						},
+						"description": "Récupère tous les trajets complétés du chauffeur"
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Tests Additionnels",
+			"item": [
+				{
+					"name": "Recherche de trajets (Parent)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/trips/search?child_id=1&school_id=1&home_lat=14.7167&home_lng=-17.4677&date=2026-02-20&min_rating=0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "trips", "search"],
+							"query": [
+								{
+									"key": "child_id",
+									"value": "1"
+								},
+								{
+									"key": "school_id",
+									"value": "1"
+								},
+								{
+									"key": "home_lat",
+									"value": "14.7167"
+								},
+								{
+									"key": "home_lng",
+									"value": "-17.4677"
+								},
+								{
+									"key": "date",
+									"value": "2026-02-20"
+								},
+								{
+									"key": "min_rating",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Recherche avancée de trajets avec filtres"
+					}
+				},
+				{
+					"name": "Annuler une réservation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{parent_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/parents/reservations/{{trip_id}}/{{child_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "parents", "reservations", "{{trip_id}}", "{{child_id}}"]
+						},
+						"description": "Annule une réservation (aller et retour si trajet aller-retour)"
+					}
+				},
+				{
+					"name": "Annuler un trajet (Chauffeur)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{driver_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/drivers/trips/{{trip_id}}/canceled",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "trips", "{{trip_id}}", "canceled"]
+						},
+						"description": "Annule un trajet. Change le statut à 'canceled'."
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://86.106.181.31:3000",
+			"type": "string"
+		},
+		{
+			"key": "driver_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "parent_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "trip_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "child_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}
+

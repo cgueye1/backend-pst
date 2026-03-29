@@ -1,3 +1,30 @@
+/**
+ * @swagger
+ * /api/auth/[...nextauth]:
+ *   get:
+ *     summary: Callback NextAuth (GET)
+ *     description: Route NextAuth pour la gestion des sessions. Utilisée par NextAuth.js pour les callbacks et la gestion des sessions.
+ *     tags: [Auth]
+ *   post:
+ *     summary: Callback NextAuth (POST)
+ *     description: Route NextAuth pour l'authentification. Utilisée par NextAuth.js pour les requêtes d'authentification.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "password123"
+ */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { query } from "@/lib/db";

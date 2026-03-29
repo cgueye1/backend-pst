@@ -7,10 +7,61 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/auth/verify-otp:
  *   post:
  *     summary: Vérifie le code OTP
- *     description: Vérifie si le code OTP saisi par l'utilisateur correspond à celui généré pour réinitialiser le mot de passe.
+ *     description: Vérifie si le code OTP saisi correspond à celui généré pour réinitialiser le mot de passe.
  *     tags: [Auth]
-
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - code
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *                 example: 1
+ *               code:
+ *                 type: string
+ *                 example: "1234"
+ *     responses:
+ *       200:
+ *         description: Code OTP vérifié
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: Code OTP vérifié
+ *                 user:
+ *                   type: object
+ *                 code:
+ *                   type: string
+ *       400:
+ *         description: Code OTP invalide ou expiré
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: Code OTP invalide ou expiré
+ *                   example: "Code OTP invalide ou expiré"
+ *       500:
+ *         description: string
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "string"
  */
+
+
 
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);

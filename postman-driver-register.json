@@ -1,0 +1,214 @@
+{
+    "info": {
+        "name": "Driver Registration API",
+        "description": "Collection pour tester l'inscription d'un chauffeur",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://86.106.181.31:3000",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Inscription Driver - JSON",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"first_name\": \"Amadou\",\n  \"last_name\": \"Diallo\",\n  \"email\": \"driver@example.com\",\n  \"phone\": \"+221771234567\",\n  \"password\": \"password123\",\n  \"vehicle_brand\": \"Toyota\",\n  \"vehicle_color\": \"Blanc\",\n  \"vehicle_plate\": \"ABC-123\",\n  \"capacity\": 4\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/auth/register-driver",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "auth",
+                        "register-driver"
+                    ]
+                },
+                "description": "Inscription d'un chauffeur avec JSON (sans fichiers). Les documents (permis, carte d'identité, photo véhicule) ne peuvent pas être envoyés en JSON."
+            },
+            "response": []
+        },
+        {
+            "name": "Inscription Driver - Form Data (avec fichiers)",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "first_name",
+                            "value": "Amadou",
+                            "type": "text"
+                        },
+                        {
+                            "key": "last_name",
+                            "value": "Diallo",
+                            "type": "text"
+                        },
+                        {
+                            "key": "email",
+                            "value": "driver2@example.com",
+                            "type": "text"
+                        },
+                        {
+                            "key": "phone",
+                            "value": "+221771234567",
+                            "type": "text"
+                        },
+                        {
+                            "key": "password",
+                            "value": "password123",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_brand",
+                            "value": "Toyota",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_color",
+                            "value": "Blanc",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_plate",
+                            "value": "ABC-123",
+                            "type": "text"
+                        },
+                        {
+                            "key": "capacity",
+                            "value": "4",
+                            "type": "text"
+                        },
+                        {
+                            "key": "license_document",
+                            "type": "file",
+                            "src": [],
+                            "description": "Document de permis de conduire (PDF, JPG, PNG)"
+                        },
+                        {
+                            "key": "id_document",
+                            "type": "file",
+                            "src": [],
+                            "description": "Carte d'identité (PDF, JPG, PNG)"
+                        },
+                        {
+                            "key": "vehicle_photo",
+                            "type": "file",
+                            "src": [],
+                            "description": "Photo du véhicule (JPG, PNG, WEBP)"
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/auth/register-driver",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "auth",
+                        "register-driver"
+                    ]
+                },
+                "description": "Inscription d'un chauffeur avec form-data. Permet d'uploader les documents (permis, carte d'identité, photo véhicule). Tous les fichiers sont optionnels."
+            },
+            "response": []
+        },
+        {
+            "name": "Inscription Driver - Form Data (sans fichiers)",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "first_name",
+                            "value": "Moussa",
+                            "type": "text"
+                        },
+                        {
+                            "key": "last_name",
+                            "value": "Ba",
+                            "type": "text"
+                        },
+                        {
+                            "key": "email",
+                            "value": "driver3@example.com",
+                            "type": "text"
+                        },
+                        {
+                            "key": "phone",
+                            "value": "+221776665555",
+                            "type": "text"
+                        },
+                        {
+                            "key": "password",
+                            "value": "password123",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_brand",
+                            "value": "Mercedes",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_color",
+                            "value": "Noir",
+                            "type": "text"
+                        },
+                        {
+                            "key": "vehicle_plate",
+                            "value": "XYZ-789",
+                            "type": "text"
+                        },
+                        {
+                            "key": "capacity",
+                            "value": "6",
+                            "type": "text"
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/auth/register-driver",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "auth",
+                        "register-driver"
+                    ]
+                },
+                "description": "Inscription d'un chauffeur avec form-data mais sans fichiers. Les documents peuvent être ajoutés plus tard."
+            },
+            "response": []
+        }
+    ]
+}
+
+
+
+
+
+
+
+
+
+
+

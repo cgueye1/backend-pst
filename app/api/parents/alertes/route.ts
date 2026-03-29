@@ -6,9 +6,87 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * @swagger
  * /api/parents/alertes:
  *   get:
- *     summary: Envoyer des rappels avant chaque trajet prévu
+ *     summary: Envoyer des rappels de trajets (Cron Job)
+ *     description: >
+ *       Endpoint cron pour envoyer des rappels aux parents pour les trajets à venir.
+ *       Autorisation via:
+ *       - header `Authorization: Bearer {CRON_SECRET}` OU
+ *       - query `?cron_secret={CRON_SECRET}`
  *     tags: [CRON]
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: "Bearer {CRON_SECRET}"
+ *       - in: query
+ *         name: cron_secret
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Secret cron alternatif
+ *       - in: query
+ *         name: unread_only
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: unread_only
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé (secret manquant/invalide)
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
+ *   post:
+ *     summary: Créer une alerte
+ *     description: Crée une nouvelle alerte pour le parent.
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - message
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Alerte importante"
+ *               message:
+ *                 type: string
+ *                 example: "Message de l'alerte"
+ *               type:
+ *                 type: string
+ *                 enum: ["info","warning","error"]
+ *                 default: info
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -17,12 +95,24 @@ export async function GET(request: NextRequest) {
     const origin = request.headers.get('origin');
     try {
         // Sécurité : Vérifier que la requête vient d'un cron autorisé
+        // Supporte deux méthodes : header Authorization OU query parameter cron_secret
         const authHeader = request.headers.get('authorization');
+        const searchParams = request.nextUrl.searchParams;
+        const cronSecretParam = searchParams.get('cron_secret');
+        
         const cronSecret = process.env.CRON_SECRET || 'your-secret-key';
 
-        if (authHeader !== `Bearer ${cronSecret}`) {
+        // Vérifier soit le header Authorization, soit le query parameter
+        const isValid = 
+            authHeader === `Bearer ${cronSecret}` || 
+            cronSecretParam === cronSecret;
+
+        if (!isValid) {
             const response = NextResponse.json(
-                { success: false, message: "Non autorisé" },
+                { 
+                    success: false, 
+                    message: "Non autorisé. Fournissez 'Authorization: Bearer {secret}' header ou '?cron_secret={secret}' query parameter." 
+                },
                 { status: 401 }
             );
             return setCorsHeaders(response, origin);

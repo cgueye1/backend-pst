@@ -12,13 +12,57 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger
  * /api/parents/account/photo:
- *   put:
- *     summary: Modifier la photo de profil
- *     tags: [Parents]
+ *   post:
+ *     summary: Uploader une photo de profil
+ *     description: Upload une nouvelle photo de profil pour le parent.
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: Fichier image (JPG, PNG, WEBP)
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   delete:
- *       summary: Supprimer la photo de profil
- *       tags: [Parents]
+ *     summary: Supprimer la photo de profil
+ *     description: Supprime la photo de profil du parent.
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -71,7 +115,9 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
         const fileExtension = file.type.split('/')[1];
         const fileName = `parent_${user.id}_${Date.now()}.${fileExtension}`;
-        const uploadDir = path.join(process.cwd(), "/uploads/parents");
+        
+        // Sauvegarder dans uploads/parents (servi via /api/uploads/{path})
+        const uploadDir = path.join(process.cwd(), "uploads", "parents");
         const filePath = join(uploadDir, fileName);
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
@@ -84,11 +130,20 @@ export async function POST(request: NextRequest) {
         );
 
         if (oldPhotoResult.rows[0]?.photo_profil) {
-            const oldPhotoPath = join(process.cwd(), 'public', oldPhotoResult.rows[0].photo_profil);
+            const oldPhotoUrl = oldPhotoResult.rows[0].photo_profil;
+            // L'ancienne photo peut être dans uploads/parents ou public/uploads/parents
+            let oldPhotoPath = join(process.cwd(), oldPhotoUrl);
+            if (!fs.existsSync(oldPhotoPath)) {
+                // Si pas trouvé, essayer dans public/uploads/parents (ancien emplacement)
+                oldPhotoPath = join(process.cwd(), 'public', oldPhotoUrl);
+            }
             try {
-                await unlink(oldPhotoPath);
+                if (fs.existsSync(oldPhotoPath)) {
+                    await unlink(oldPhotoPath);
+                    console.log(`✅ Ancienne photo supprimée: ${oldPhotoPath}`);
+                }
             } catch (err) {
-                console.log('Ancienne photo non trouvée ou déjà supprimée');
+                console.log('Ancienne photo non trouvée ou déjà supprimée:', err);
             }
         }
 
@@ -143,12 +198,21 @@ export async function DELETE(request: NextRequest) {
         );
 
         if (photoResult.rows[0]?.photo_profil) {
-            const photoPath = join(process.cwd(), 'public', photoResult.rows[0].photo_profil);
+            const photoUrl = photoResult.rows[0].photo_profil;
+            // Essayer d'abord dans uploads/parents
+            let photoPath = join(process.cwd(), photoUrl);
+            if (!fs.existsSync(photoPath)) {
+                // Si pas trouvé, essayer dans public/uploads/parents (ancien emplacement)
+                photoPath = join(process.cwd(), 'public', photoUrl);
+            }
 
             try {
-                await unlink(photoPath);
+                if (fs.existsSync(photoPath)) {
+                    await unlink(photoPath);
+                    console.log(`✅ Photo supprimée: ${photoPath}`);
+                }
             } catch (err) {
-                console.log('Photo non trouvée sur le disque');
+                console.log('Photo non trouvée sur le disque:', err);
             }
         }
 

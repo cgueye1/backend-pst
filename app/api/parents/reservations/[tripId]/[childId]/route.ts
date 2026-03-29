@@ -8,11 +8,38 @@ import { setCorsHeaders, corsOptions } from "@/lib/cors";
  * /api/parents/reservations/{tripId}/{childId}:
  *   delete:
  *     summary: Annuler une réservation
- *     description: Permet à un parent d'annuler la réservation de son enfant pour un trajet donné
- *     tags: [Parents]
+ *     description: Annule une réservation spécifique pour un enfant.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tripId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID du trajet
+ *       - in: path
+ *         name: childId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de l'enfant
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
+
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }

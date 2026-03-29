@@ -16,12 +16,67 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/parents/account:
  *   get:
  *     summary: Récupérer les informations du compte
- *     tags: [Parents]
+ *     description: Récupère les informations du compte du parent connecté.
+ *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  *   put:
  *     summary: Modifier les informations personnelles
- *     tags: [Parents]
+ *     description: Met à jour les informations personnelles du parent (nom, email, téléphone, adresse, mot de passe).
+ *     tags: ["Parents"]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               current_password:
+ *                 type: string
+ *                 format: password
+ *                 description: Mot de passe actuel (requis pour changer le mot de passe)
+ *               new_password:
+ *                 type: string
+ *                 format: password
+ *                 description: Nouveau mot de passe
+ *     responses:
+ *       200:
+ *         description: Succès
+ *       400:
+ *         description: Erreur de validation
+ *       401:
+ *         description: Non autorisé
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Ressource non trouvée
+ *       500:
+ *         description: Erreur serveur
  */
 
 export async function OPTIONS(req: NextRequest) {
