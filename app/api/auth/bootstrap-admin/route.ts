@@ -56,10 +56,11 @@ export async function POST(req: NextRequest) {
             return setCorsHeaders(response, origin);
         }
 
-        const countRes = await query<{ count: string }>(
+        const countRes = await query(
             `SELECT COUNT(*)::text AS count FROM users WHERE role = 'admin'`
         );
-        const adminCount = parseInt(countRes.rows[0]?.count || "0", 10);
+        const countRow = countRes.rows[0] as { count: string } | undefined;
+        const adminCount = parseInt(countRow?.count || "0", 10);
         if (adminCount > 0) {
             const response = NextResponse.json(
                 {
