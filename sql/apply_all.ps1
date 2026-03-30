@@ -44,7 +44,8 @@ $migrations = @(
     "update_capacity_limit.sql",
     "update_carpool_planning.sql",
     "update_existing_trips_gps.sql",
-    "fix_confirmation_status_length.sql"
+    "fix_confirmation_status_length.sql",
+    "fix_carpool_exchanges_date_index.sql"
 )
 
 foreach ($f in $migrations) {

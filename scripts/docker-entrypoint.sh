@@ -66,4 +66,10 @@ else
   echo "Init SQL terminée."
 fi
 
+# Toujours exécuter les correctifs idempotents (ex. index covoiturage si ancienne image SQL)
+if [ -f "$SQL_DIR/fix_carpool_exchanges_date_index.sql" ]; then
+  echo ">>> sql/fix_carpool_exchanges_date_index.sql (idempotent)"
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/fix_carpool_exchanges_date_index.sql"
+fi
+
 exec node server.js

@@ -42,12 +42,8 @@ export async function GET(req: NextRequest) {
             },
 
             apis: [
-                // 1. Les fichiers d'API contenant les annotations de route (GET, POST, etc.)
+                // Annotations @swagger dans les routes (ne pas inclure lib/swagger.ts : script Node, pas de doc OpenAPI)
                 path.resolve(cwd, "app/api/**/*.ts"),
-                //  path.resolve(cwd, "app/api/auth/login/route.ts"),
-
-                // 2. Les fichiers de définition de schémas (votre lib/swagger.ts)
-                path.resolve(cwd, "lib/swagger.ts"),
             ],
         };
 

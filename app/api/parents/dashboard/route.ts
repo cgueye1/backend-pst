@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
 import {query} from "@/lib/db";
 
@@ -8,7 +8,7 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
  * /api/parents/dashboard:
  *   get:
  *     summary: Tableau de bord parent
- *     description: Récupère les statistiques du tableau de bord : trajets à venir, enfants, réservations récentes, etc.
+ *     description: "Récupère les statistiques du tableau de bord : trajets à venir, enfants, réservations récentes, etc."
  *     tags: ["Parents"]
  *     security:
  *       - bearerAuth: []

@@ -3,7 +3,7 @@
  * /api/dashboard:
  *   get:
  *     summary: Récupérer les statistiques du tableau de bord
- *     description: Récupère toutes les statistiques pour le tableau de bord administrateur : nombre d'utilisateurs, trajets, revenus mensuels, etc.
+ *     description: "Récupère toutes les statistiques pour le tableau de bord administrateur : nombre d'utilisateurs, trajets, revenus mensuels, etc."
  *     tags: ["ADMIN"]
  *     security:
  *       - bearerAuth: []

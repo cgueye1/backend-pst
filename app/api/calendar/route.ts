@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/calendar:
  *   get:
@@ -23,7 +23,7 @@
  *         required: false
  *         schema:
  *           type: integer
- *         description: Année (ex: 2024)
+ *         description: "Année (ex: 2024)"
  *     responses:
  *       200:
  *         description: Succès

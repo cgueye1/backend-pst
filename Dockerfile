@@ -69,6 +69,8 @@ COPY --from=builder /app/fix-server-hostname.js ./
 # Client PostgreSQL + scripts SQL : init au démarrage si la base est vide (voir scripts/docker-entrypoint.sh)
 RUN apk add --no-cache postgresql-client
 COPY sql/ ./sql/
+# Sources des routes : nécessaires à swagger-jsdoc pour GET /api/swagger.json en production
+COPY --from=builder /app/app/api ./app/api
 COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN sed -i 's/\r$//' ./docker-entrypoint.sh 2>/dev/null || true && chmod +x ./docker-entrypoint.sh
 

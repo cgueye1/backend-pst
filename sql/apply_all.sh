@@ -39,6 +39,7 @@ MIGRATIONS=(
   "update_carpool_planning.sql"
   "update_existing_trips_gps.sql"
   "fix_confirmation_status_length.sql"
+  "fix_carpool_exchanges_date_index.sql"
 )
 
 for f in "${MIGRATIONS[@]}"; do

@@ -76,7 +76,7 @@ CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_group ON carpool_exchanges(grou
 CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_requester ON carpool_exchanges(requester_id);
 CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_target_driver ON carpool_exchanges(target_driver_id);
 CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_status ON carpool_exchanges(status);
-CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_date ON carpool_exchanges(date);
+CREATE INDEX IF NOT EXISTS idx_carpool_exchanges_original_date ON carpool_exchanges(original_date);
 
 -- Commentaires sur les tables
 COMMENT ON TABLE carpool_groups IS 'Groupes de covoiturage créés par les parents';
