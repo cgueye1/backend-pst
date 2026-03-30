@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/incidents:
  *   get:
@@ -97,9 +97,9 @@ import { query } from '@/lib/db';
 import {NextRequest, NextResponse} from 'next/server';
 import {getUserFromRequest} from "@/lib/auth";
 
-import fs from 'fs';
 import path from 'path';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile } from '@/lib/storage';
 interface Incident {
     id: number;
     type_de_problem: string;
@@ -182,12 +182,6 @@ export async function GET(req: NextRequest) {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Dossier pour les uploads d'incidents
-const uploadDir = path.join(process.cwd(), '/uploads/incidents');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
 export async function POST(req: NextRequest) {
     const origin = req.headers.get('origin');
     try {
@@ -216,17 +210,18 @@ export async function POST(req: NextRequest) {
             if (file && file instanceof File) {
                 const ext = path.extname(file.name);
                 const filename = `incident_${Date.now()}_${i}${ext}`;
-                const filePath = path.join(uploadDir, filename);
-
-                // Convertir File en Buffer et sauvegarder
                 const bytes = await file.arrayBuffer();
-                fs.writeFileSync(filePath, Buffer.from(bytes));
+                const url = await saveUploadsFile(
+                    `incidents/${filename}`,
+                    Buffer.from(bytes),
+                    file.type || undefined
+                );
 
                 documents.push({
                     name: file.name,
                     size: file.size,
                     type: file.type,
-                    url: `/uploads/incidents/${filename}`, // chemin accessible via API
+                    url,
                 });
             }
         }

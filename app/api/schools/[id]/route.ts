@@ -140,8 +140,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import fs from 'fs';
 import path from 'path';
+import { saveUploadsFile, deleteUploadsByStoredUrl } from '@/lib/storage';
 
 // Configure runtime for file uploads
 export const runtime = 'nodejs';
@@ -150,12 +150,6 @@ export const dynamic = 'force-dynamic';
 type Params = {
     params: Promise<{ id: string }>;
 };
-
-// Dossier pour les uploads de logos d'écoles
-const uploadDir = path.join(process.cwd(), '/uploads/schools');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 // CORS Helper
 function setCorsHeaders(response: NextResponse) {
@@ -239,13 +233,13 @@ export async function PUT(req: NextRequest, context: Params) {
         if (logoFile && logoFile.size > 0) {
             const ext = path.extname(logoFile.name || '');
             const filename = `school_${numericId}_${Date.now()}${ext}`;
-            const filePath = path.join(uploadDir, filename);
-
             const bytes = await logoFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            fs.writeFileSync(filePath, buffer);
-
-            logo_url = `/uploads/schools/${filename}`;
+            logo_url = await saveUploadsFile(
+                `schools/${filename}`,
+                buffer,
+                logoFile.type || undefined
+            );
             console.log('Logo uploaded:', logo_url);
         }
 
@@ -412,11 +406,8 @@ export async function DELETE(req: NextRequest, context: Params) {
         // Supprimer le logo si existe
         const deletedSchool = res.rows[0];
         if (deletedSchool.logo_url) {
-            const logoPath = path.join(process.cwd(), deletedSchool.logo_url);
-            if (fs.existsSync(logoPath)) {
-                fs.unlinkSync(logoPath);
-                console.log('Logo supprimé:', logoPath);
-            }
+            await deleteUploadsByStoredUrl(deletedSchool.logo_url);
+            console.log('Logo supprimé (stockage):', deletedSchool.logo_url);
         }
 
         return setCorsHeaders(

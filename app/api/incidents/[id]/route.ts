@@ -140,10 +140,7 @@ import { setCorsHeaders, corsOptions } from '@/lib/cors';
 import { getUserFromRequest } from '@/lib/auth';
 
 import path from "path";
-
-
-// Handle new file uploads
-import fs from "fs";
+import { saveUploadsFile } from "@/lib/storage";
 
 type Params = {
     params: Promise<{
@@ -257,11 +254,6 @@ export async function PUT(
                 existingDocuments = [];
             }
         }
-        const uploadDir = path.join(process.cwd(), '/uploads/incidents');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
         // Récupérer les URLs des documents à garder (utiliser l'URL comme identifiant unique)
         // Si keep_documents est présent (même vide), on filtre selon les URLs
         // Si keep_documents n'est pas présent du tout, on garde tous les documents existants
@@ -307,17 +299,18 @@ export async function PUT(
             if (file) {
                 const ext = path.extname(file.name);
                 const filename = `incident_${Date.now()}_${index}${ext}`;
-                const filePath = path.join(uploadDir, filename);
-
-                // Convertir File en Buffer et sauvegarder
                 const bytes = await file.arrayBuffer();
-                fs.writeFileSync(filePath, Buffer.from(bytes));
+                const url = await saveUploadsFile(
+                    `incidents/${filename}`,
+                    Buffer.from(bytes),
+                    file.type || undefined
+                );
 
                 newDocuments.push({
                     name: file.name,
                     size: file.size,
                     type: file.type,
-                    url: `/uploads/incidents/${filename}`,
+                    url,
                 });
             }
             index++;

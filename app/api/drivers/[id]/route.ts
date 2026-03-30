@@ -139,8 +139,8 @@ import {
 import { authMiddleware } from "@/lib/auth";
 import { setCorsHeaders, corsOptions } from "@/lib/cors";
 import { updateDriverSchema, validateData } from "@/lib/validation";
-import fs from "fs";
 import path from "path";
+import { saveUploadsFile } from "@/lib/storage";
 
 type Params = {
     params: Promise<{
@@ -197,28 +197,19 @@ export async function PUT(req: NextRequest, context: Params) {
             const id_document_file = formData.get("id_document") as File | null;
             const vehicle_photo_file = formData.get("vehicle_photo") as File | null;
 
-            // Dossier d'upload - gérer Docker et local
-            const isDocker = fs.existsSync('/app/uploads');
-            const uploadsBase = isDocker ? '/app/uploads' : path.join(process.cwd(), 'uploads');
-            const uploadDir = path.join(uploadsBase, 'drivers');
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-
-            // Fonction pour sauvegarder un fichier
             const saveFile = async (file: File | null, prefix: string): Promise<string | null> => {
                 if (!file || file.size === 0) return null;
 
                 const ext = path.extname(file.name) || '.pdf';
                 const filename = `${prefix}_${driverId}_${Date.now()}${ext}`;
-                const filePath = path.join(uploadDir, filename);
-
                 const bytes = await file.arrayBuffer();
                 const buffer = Buffer.from(bytes);
-                fs.writeFileSync(filePath, buffer);
-
-                const fileUrl = `/uploads/drivers/${filename}`;
-                console.log(`✅ ${prefix} sauvegardé: ${fileUrl} (fichier: ${filePath})`);
+                const fileUrl = await saveUploadsFile(
+                    `drivers/${filename}`,
+                    buffer,
+                    file.type || undefined
+                );
+                console.log(`✅ ${prefix} sauvegardé: ${fileUrl}`);
                 return fileUrl;
             };
 

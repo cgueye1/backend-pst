@@ -26,11 +26,8 @@
  *         description: Erreur serveur
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import fs from 'fs';
-import { join } from 'path';
-
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile } from '@/lib/storage';
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -48,19 +45,15 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
 
         const filename = `${Date.now()}-${file.name}`;
-        const uploadDir = join(process.cwd(), 'uploads', 'notifications');
-        
-        // Créer le dossier s'il n'existe pas
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        
-        const filePath = join(uploadDir, filename);
-        await writeFile(filePath, buffer);
+        const url = await saveUploadsFile(
+            `notifications/${filename}`,
+            buffer,
+            file.type || undefined
+        );
 
         return NextResponse.json({
             success: true,
-            url: `/uploads/notifications/${filename}`
+            url
         });
     } catch (error) {
         console.error('Upload error:', error);

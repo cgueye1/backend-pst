@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/schools:
  *   get:
@@ -72,19 +72,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import fs from 'fs';
 import path from 'path';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile } from '@/lib/storage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Dossier pour les uploads de logos d'écoles
-const uploadDir = path.join(process.cwd(), '/uploads/schools');
-
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 export async function OPTIONS() {
     return new NextResponse(null, {
@@ -156,18 +149,15 @@ export async function POST(req: Request) {
         // Gérer l'upload du logo
         let logo_url: string | null = null;
         if (logoFile && logoFile.size > 0) {
-            // Générer un nom unique pour le fichier
             const ext = path.extname(logoFile.name || '');
             const filename = `school_${Date.now()}${ext}`;
-            const newPath = path.join(uploadDir, filename);
-            
-            // Convert File to Buffer and save
             const bytes = await logoFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            fs.writeFileSync(newPath, buffer);
-            
-            // Stocker le chemin relatif pour l'API
-            logo_url = `/uploads/schools/${filename}`;
+            logo_url = await saveUploadsFile(
+                `schools/${filename}`,
+                buffer,
+                logoFile.type || undefined
+            );
         }
 
           let res;

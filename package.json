@@ -17,7 +17,9 @@
     "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.758.0",
     "@angular/common": "^21.0.6",
+    "@aws-sdk/client-s3": "^3.1019.0",
     "@vercel/postgres": "^0.10.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
@@ -38,6 +40,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/formidable": "^3.4.6",
+    "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^20.19.26",
@@ -48,8 +51,6 @@
     "@types/react-dom": "^19",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-dist": "^3.30.6",
-    "@types/jest": "^29.5.12",
-    "@types/node": "^20.19.26",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
     "exceljs": "^4.4.0",

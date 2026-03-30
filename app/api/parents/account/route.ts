@@ -1,4 +1,4 @@
-﻿// ========================================
+// ========================================
 // API PARENT - MON COMPTE (Next.js)
 // Fichier: app/api/parents/account/route.ts
 // ========================================
@@ -7,9 +7,6 @@ import { getUserFromRequest } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import bcrypt from "bcrypt";
-import { writeFile, unlink } from "fs/promises";
-import { join } from "path";
-
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
 /**
  * @swagger

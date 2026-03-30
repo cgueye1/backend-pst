@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/auth/register-driver:
  *   post:
@@ -103,17 +103,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { File } from "formdata-node";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import fs from "fs";
 import path from "path";
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile } from "@/lib/storage";
 import { registerDriverSchema, validateData, validateFormData } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Dossier uploads (servi via /api/uploads/{path})
-const uploadDir = path.join(process.cwd(), "uploads", "drivers");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
@@ -285,10 +281,8 @@ export async function POST(req: Request) {
         const saveFile = async (file: File | null) => {
             if (!file) return null;
             const filename = `${Date.now()}_${file.name}`;
-            const filePath = path.join(uploadDir, filename);
             const buffer = Buffer.from(await file.arrayBuffer());
-            fs.writeFileSync(filePath, buffer);
-            return `/uploads/drivers/${filename}`;
+            return saveUploadsFile(`drivers/${filename}`, buffer, file.type || undefined);
         };
 
         // Sauvegarder les fichiers si fournis (seulement pour form-data)

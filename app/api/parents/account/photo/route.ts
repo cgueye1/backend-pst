@@ -1,14 +1,8 @@
-﻿import {NextRequest, NextResponse} from "next/server";
+import {NextRequest, NextResponse} from "next/server";
 import {getUserFromRequest} from "@/lib/auth";
-import {unlink, writeFile} from "fs/promises";
-import path, {join} from "path";
 import {query} from "@/lib/db";
-
-
-// Créer le dossier si nécessaire
-import fs from "fs";
-
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile, deleteUploadsByStoredUrl } from "@/lib/storage";
 /**
  * @swagger
  * /api/parents/account/photo:
@@ -115,42 +109,21 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
         const fileExtension = file.type.split('/')[1];
         const fileName = `parent_${user.id}_${Date.now()}.${fileExtension}`;
-        
-        // Sauvegarder dans uploads/parents (servi via /api/uploads/{path})
-        const uploadDir = path.join(process.cwd(), "uploads", "parents");
-        const filePath = join(uploadDir, fileName);
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
 
-        // Supprimer l'ancienne photo si elle existe
         const oldPhotoResult = await query(
             `SELECT photo_profil FROM users WHERE id = $1`,
             [user.id]
         );
 
         if (oldPhotoResult.rows[0]?.photo_profil) {
-            const oldPhotoUrl = oldPhotoResult.rows[0].photo_profil;
-            // L'ancienne photo peut être dans uploads/parents ou public/uploads/parents
-            let oldPhotoPath = join(process.cwd(), oldPhotoUrl);
-            if (!fs.existsSync(oldPhotoPath)) {
-                // Si pas trouvé, essayer dans public/uploads/parents (ancien emplacement)
-                oldPhotoPath = join(process.cwd(), 'public', oldPhotoUrl);
-            }
-            try {
-                if (fs.existsSync(oldPhotoPath)) {
-                    await unlink(oldPhotoPath);
-                    console.log(`✅ Ancienne photo supprimée: ${oldPhotoPath}`);
-                }
-            } catch (err) {
-                console.log('Ancienne photo non trouvée ou déjà supprimée:', err);
-            }
+            await deleteUploadsByStoredUrl(oldPhotoResult.rows[0].photo_profil);
         }
 
-        // Sauvegarder le nouveau fichier
-        await writeFile(filePath, buffer);
-
-        const photoUrl = `/uploads/parents/${fileName}`;
+        const photoUrl = await saveUploadsFile(
+            `parents/${fileName}`,
+            buffer,
+            file.type || undefined
+        );
 
         // Mettre à jour la base de données
         await query(
@@ -198,22 +171,7 @@ export async function DELETE(request: NextRequest) {
         );
 
         if (photoResult.rows[0]?.photo_profil) {
-            const photoUrl = photoResult.rows[0].photo_profil;
-            // Essayer d'abord dans uploads/parents
-            let photoPath = join(process.cwd(), photoUrl);
-            if (!fs.existsSync(photoPath)) {
-                // Si pas trouvé, essayer dans public/uploads/parents (ancien emplacement)
-                photoPath = join(process.cwd(), 'public', photoUrl);
-            }
-
-            try {
-                if (fs.existsSync(photoPath)) {
-                    await unlink(photoPath);
-                    console.log(`✅ Photo supprimée: ${photoPath}`);
-                }
-            } catch (err) {
-                console.log('Photo non trouvée sur le disque:', err);
-            }
+            await deleteUploadsByStoredUrl(photoResult.rows[0].photo_profil);
         }
 
         // Supprimer de la base de données

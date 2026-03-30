@@ -19,9 +19,9 @@
  *         description: Fichier non trouvé
  */
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
 import path from 'path';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { readUploadsFile, mimeFromExtension } from '@/lib/storage';
 
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
@@ -39,45 +39,24 @@ export async function GET(
             : context.params;
 
         const filePath = params.path.join('/');
-        // Dans Docker, utiliser directement /app/uploads
-        // En local, utiliser process.cwd() + uploads
-        const isDocker = fs.existsSync('/app/uploads');
-        const uploadsBase = isDocker ? '/app/uploads' : path.join(process.cwd(), 'uploads');
-        const fullPath = path.join(uploadsBase, filePath);
-
-        // Vérifier que le fichier existe et est dans le dossier uploads (sécurité)
-        if (!fullPath.startsWith(uploadsBase)) {
-            console.error('Access denied - path outside uploads:', fullPath);
+        if (filePath.includes('..')) {
             const response = NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
             return setCorsHeaders(response, origin);
         }
 
-        if (!fs.existsSync(fullPath)) {
-            console.error('File not found:', fullPath);
-            const response = NextResponse.json({ error: 'Fichier non trouvé', path: fullPath }, { status: 404 });
+        const fileBuffer = await readUploadsFile(filePath);
+        if (!fileBuffer) {
+            const response = NextResponse.json({ error: 'Fichier non trouvé' }, { status: 404 });
             return setCorsHeaders(response, origin);
         }
 
-        const fileBuffer = fs.readFileSync(fullPath);
-        const ext = path.extname(fullPath).toLowerCase();
-
-        // Déterminer le type MIME
-        const mimeTypes: { [key: string]: string } = {
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.webp': 'image/webp',
-            '.pdf': 'application/pdf',
-            '.mp4': 'video/mp4',
-        };
-
-        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        const ext = path.extname(filePath).toLowerCase();
+        const contentType = mimeFromExtension(ext);
 
         // Extraire le nom du fichier pour le Content-Disposition
-        const fileName = path.basename(fullPath);
+        const fileName = path.basename(filePath);
 
-        const response = new NextResponse(fileBuffer, {
+        const response = new NextResponse(new Uint8Array(fileBuffer), {
             headers: {
                 'Content-Type': contentType,
                 'Content-Disposition': `inline; filename="${fileName}"`, // inline pour les images (au lieu de attachment)

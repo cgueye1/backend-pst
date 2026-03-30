@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/drivers/profile:
  *   get:
@@ -136,10 +136,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import path from "path";
-import fs from "fs";
-
-
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { saveUploadsFile } from "@/lib/storage";
 export async function OPTIONS(req: NextRequest) {
     return corsOptions(req);
 }
@@ -391,27 +389,16 @@ export async function PUT(request: NextRequest) {
         let photo_url: string | null = null;
 
         if (photoFile && photoFile.size > 0) {
-            // Sauvegarder dans uploads/drivers (servi via /api/uploads/{path} ou /uploads/{path})
-            // Gérer Docker et local
-            const isDocker = fs.existsSync('/app/uploads');
-            const uploadsBase = isDocker ? '/app/uploads' : path.join(process.cwd(), 'uploads');
-            const uploadDir = path.join(uploadsBase, 'drivers');
-
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-
             const ext = path.extname(photoFile.name);
             const filename = `driver_${user.id}_${Date.now()}${ext}`;
-            const filePath = path.join(uploadDir, filename);
-
             const bytes = await photoFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            fs.writeFileSync(filePath, buffer);
-
-            // URL accessible via /api/uploads/drivers/{filename}
-            photo_url = `/uploads/drivers/${filename}`;
-            console.log(`✅ Photo sauvegardée: ${photo_url} (fichier: ${filePath})`);
+            photo_url = await saveUploadsFile(
+                `drivers/${filename}`,
+                buffer,
+                photoFile.type || undefined
+            );
+            console.log(`✅ Photo sauvegardée: ${photo_url}`);
         }
 
         await query("BEGIN");
