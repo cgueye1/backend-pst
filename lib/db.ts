@@ -17,18 +17,27 @@ const poolConfig: {
 };
 
 // Configuration SSL
-// Priorité: DATABASE_SSL > NODE_ENV
-// Si DATABASE_SSL est explicitement défini, on le respecte
-// Sinon, on active SSL en production (pour Vercel, etc.)
-if (process.env.DATABASE_SSL !== undefined) {
-    // DATABASE_SSL est défini explicitement
-    if (process.env.DATABASE_SSL === 'true') {
-        poolConfig.ssl = { rejectUnauthorized: false };
-    }
-    // Si DATABASE_SSL === 'false', on ne configure pas SSL (undefined)
-} else if (process.env.NODE_ENV === 'production') {
-    // Fallback: SSL en production si DATABASE_SSL n'est pas défini
+// - Par défaut : pas d’option ssl sur le pool → connexion classique (Postgres Docker / Dockploy / local).
+// - SSL explicite : DATABASE_SSL=true ou sslmode=require|verify-full dans DATABASE_URL (Neon, Supabase, RDS, etc.).
+// Note : forcer ssl en prod sans que le serveur l’accepte provoque « The server does not support SSL connections ».
+if (process.env.DATABASE_SSL === 'true') {
     poolConfig.ssl = { rejectUnauthorized: false };
+} else if (process.env.DATABASE_SSL === 'false') {
+    poolConfig.ssl = false;
+} else {
+    try {
+        const u = new URL(
+            poolConfig.connectionString.replace(/^postgresql:/i, 'http:')
+        );
+        const mode = (u.searchParams.get('sslmode') || '').toLowerCase();
+        if (mode === 'require' || mode === 'verify-full' || mode === 'verify-ca') {
+            poolConfig.ssl = { rejectUnauthorized: mode !== 'require' };
+        } else if (mode === 'disable') {
+            poolConfig.ssl = false;
+        }
+    } catch {
+        /* URL non parseable : laisser pg gérer */
+    }
 }
 
 // Validation de la connection string

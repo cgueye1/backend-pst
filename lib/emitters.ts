@@ -8,13 +8,24 @@ const poolConfig: {
     connectionString: process.env.DATABASE_URL || '',
 };
 
-// Configuration SSL (même logique que lib/db.ts)
-if (process.env.DATABASE_SSL !== undefined) {
-    if (process.env.DATABASE_SSL === 'true') {
-        poolConfig.ssl = { rejectUnauthorized: false };
-    }
-} else if (process.env.NODE_ENV === 'production') {
+// Configuration SSL (alignée sur lib/db.ts)
+if (process.env.DATABASE_SSL === 'true') {
     poolConfig.ssl = { rejectUnauthorized: false };
+} else if (process.env.DATABASE_SSL === 'false') {
+    poolConfig.ssl = false;
+} else {
+    try {
+        const conn = process.env.DATABASE_URL || '';
+        const u = new URL(conn.replace(/^postgresql:/i, 'http:'));
+        const mode = (u.searchParams.get('sslmode') || '').toLowerCase();
+        if (mode === 'require' || mode === 'verify-full' || mode === 'verify-ca') {
+            poolConfig.ssl = { rejectUnauthorized: mode !== 'require' };
+        } else if (mode === 'disable') {
+            poolConfig.ssl = false;
+        }
+    } catch {
+        /* ignore */
+    }
 }
 
 // Crée une instance de connexion PostgreSQL
