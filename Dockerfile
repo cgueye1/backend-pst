@@ -66,6 +66,12 @@ COPY --from=builder /app/public ./public
 # Copier le script de correction du serveur dans l'image finale
 COPY --from=builder /app/fix-server-hostname.js ./
 
+# Client PostgreSQL + scripts SQL : init au démarrage si la base est vide (voir scripts/docker-entrypoint.sh)
+RUN apk add --no-cache postgresql-client
+COPY sql/ ./sql/
+COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh 2>/dev/null || true && chmod +x ./docker-entrypoint.sh
+
 # Vérifier que les fichiers existent et exécuter le script
 RUN echo "=== DEBUG: Listing /app directory ===" && \
     ls -la /app/ | head -20 && \
@@ -131,7 +137,6 @@ RUN echo "=== Final structure check ===" && \
       grep '"start"' /app/package.json || echo "No start script in package.json (good, we use CMD)"; \
     fi
 
-# Démarrer l'application
+# Démarrer l'application (init SQL optionnelle puis node server.js)
 # Le script fix-server-hostname.js a modifié server.js pour écouter sur 0.0.0.0
-# CMD explicite pour éviter toute confusion avec package.json
-CMD ["node", "server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
