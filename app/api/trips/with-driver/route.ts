@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * /api/trips/with-driver:
  *   get:
@@ -43,13 +43,17 @@ export async function GET(req: NextRequest) {
 
                 s.name AS school_name,
                 COUNT(tc.child_id) AS current_passengers,
-                -- Calculer le statut global
-                CASE 
+                CASE
                     WHEN t.trip_type = 'aller_retour' AND t.return_status IS NOT NULL THEN
-                        get_trip_overall_status(t.status, t.return_status, t.trip_type)
-                    ELSE
-                        t.status
-                END as overall_status
+                        CASE
+                            WHEN t.status = 'canceled' OR t.return_status = 'canceled' THEN 'canceled'
+                            WHEN t.status = 'completed' AND t.return_status = 'completed' THEN 'completed'
+                            WHEN t.status = 'in_progress' OR t.return_status = 'in_progress' THEN 'in_progress'
+                            WHEN t.status = 'completed' AND t.return_status = 'pending' THEN 'partially_completed'
+                            ELSE 'pending'
+                        END
+                    ELSE t.status
+                END AS overall_status
             FROM trips t
                      INNER JOIN drivers d ON d.id = t.driver_id
                      INNER JOIN users u ON u.id = d.user_id
