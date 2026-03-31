@@ -1,9 +1,18 @@
 /**
- * Stockage des fichiers : MinIO (S3) si MINIO_* est défini, sinon disque local (uploads/).
+ * Stockage des fichiers : MinIO (S3) ou disque local (uploads/).
  *
- * Variables : MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET
- * Optionnel : MINIO_REGION (défaut us-east-1)
- * Ne jamais committer les clés — uniquement via variables d'environnement (Dockploy, .env).
+ * MinIO (recommandé en prod) :
+ *   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET
+ *   MINIO_REGION (optionnel, défaut us-east-1)
+ *   MINIO_PUBLIC_BASE_URL (optionnel) : URL publique pour les objets, sans slash final.
+ *     Ex. path-style : https://minio.votredomaine.com/nom-bucket
+ *     Les fichiers seront accessibles en https://.../nom-bucket/uploads/...
+ *     Si absent : l’URL stockée reste /uploads/... et Next sert le fichier via readUploadsFile (proxy).
+ *
+ * Forcer le backend :
+ *   UPLOAD_STORAGE=minio  → uniquement MinIO (erreur si variables incomplètes)
+ *   UPLOAD_STORAGE=local  → uniquement le disque (ignore MinIO même si configuré)
+ *   (non défini)          → MinIO si toutes les variables MinIO sont présentes, sinon disque.
  */
 
 import fs from "fs";
@@ -23,6 +32,32 @@ export function isMinioStorageConfigured(): boolean {
             process.env.MINIO_SECRET_KEY?.trim() &&
             process.env.MINIO_BUCKET?.trim()
     );
+}
+
+export type UploadStorageMode = "minio" | "local";
+
+/** Mode effectif : minio, local, ou auto (MinIO si configuré sinon disque). */
+export function getUploadStorageMode(): UploadStorageMode {
+    const v = process.env.UPLOAD_STORAGE?.trim().toLowerCase();
+    if (v === "minio") return "minio";
+    if (v === "local") return "local";
+    return isMinioStorageConfigured() ? "minio" : "local";
+}
+
+function requireMinioConfigured(): void {
+    if (!isMinioStorageConfigured()) {
+        throw new Error(
+            "UPLOAD_STORAGE=minio (ou MinIO auto) : définissez MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY et MINIO_BUCKET"
+        );
+    }
+}
+
+/** URL publique directe vers l’objet dans MinIO (bucket policy / CDN). */
+function minioPublicUrlForKey(key: string): string | null {
+    const base = process.env.MINIO_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
+    if (!base) return null;
+    const k = key.replace(/^\/+/, "");
+    return `${base}/${k}`;
 }
 
 function getUploadsBaseDir(): string {
@@ -63,7 +98,7 @@ export function toObjectKey(relativeUnderUploads: string): string {
 
 /**
  * @param relativeUnderUploads chemin sous uploads/, ex. drivers/foo.jpg ou incidents/x.pdf
- * @returns URL stockée en base, ex. /uploads/drivers/foo.jpg
+ * @returns URL stockée en base : URL absolue MinIO si MINIO_PUBLIC_BASE_URL est défini, sinon /uploads/...
  */
 export async function saveUploadsFile(
     relativeUnderUploads: string,
@@ -73,8 +108,10 @@ export async function saveUploadsFile(
     const key = toObjectKey(relativeUnderUploads);
     const relForUrl = key.replace(/^uploads\/?/, "");
     const publicPath = `/uploads/${relForUrl}`;
+    const mode = getUploadStorageMode();
 
-    if (isMinioStorageConfigured()) {
+    if (mode === "minio") {
+        requireMinioConfigured();
         await getS3().send(
             new PutObjectCommand({
                 Bucket: bucket(),
@@ -83,7 +120,8 @@ export async function saveUploadsFile(
                 ContentType: contentType || "application/octet-stream",
             })
         );
-        return publicPath;
+        const direct = minioPublicUrlForKey(key);
+        return direct ?? publicPath;
     }
 
     const fullPath = path.join(getUploadsBaseDir(), relForUrl);
@@ -94,18 +132,18 @@ export async function saveUploadsFile(
 
 export function parseRelativePathFromStoredUrl(storedUrl: string): string | null {
     if (!storedUrl || typeof storedUrl !== "string") return null;
-    const u = storedUrl.trim();
+    const u = storedUrl.trim().split("?")[0];
     const marker = "/uploads/";
     const idx = u.indexOf(marker);
     if (idx !== -1) {
-        return u.slice(idx + marker.length).split("?")[0];
+        return u.slice(idx + marker.length);
     }
     const b = process.env.MINIO_BUCKET;
     if (b) {
         const m2 = `/${b}/uploads/`;
         const j = u.indexOf(m2);
         if (j !== -1) {
-            return u.slice(j + m2.length).split("?")[0];
+            return u.slice(j + m2.length);
         }
     }
     return null;
@@ -116,7 +154,8 @@ export async function deleteUploadsByStoredUrl(storedUrl: string): Promise<void>
     if (!rel) return;
     const key = toObjectKey(rel);
 
-    if (isMinioStorageConfigured()) {
+    if (getUploadStorageMode() === "minio") {
+        requireMinioConfigured();
         try {
             await getS3().send(
                 new DeleteObjectCommand({
@@ -166,7 +205,8 @@ export async function readUploadsFile(filePathSegments: string): Promise<Buffer 
 
     const key = toObjectKey(filePathSegments);
 
-    if (isMinioStorageConfigured()) {
+    if (getUploadStorageMode() === "minio") {
+        requireMinioConfigured();
         try {
             const out = await getS3().send(
                 new GetObjectCommand({
@@ -207,4 +247,50 @@ export function mimeFromExtension(ext: string): string {
         ".mp4": "video/mp4",
     };
     return mimeTypes[e] || "application/octet-stream";
+}
+
+function publicBaseUrlFromRequestHeaders(h: Headers | undefined): string {
+    if (!h) return "";
+    const host = h.get("x-forwarded-host") || h.get("host");
+    if (!host) return "";
+    const forwardedProto = h.get("x-forwarded-proto");
+    const proto =
+        forwardedProto?.split(",")[0]?.trim() ||
+        (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+    return `${proto}://${host}`.replace(/\/+$/, "");
+}
+
+/**
+ * Préfixe une URL stockée (/uploads/...) avec l’origine publique de l’API.
+ * Indispensable quand le front (Angular) est sur un autre domaine que l’API : sinon
+ * le navigateur demande https://front/uploads/... au lieu de https://api.../uploads/...
+ *
+ * Variables : API_PUBLIC_URL ou NEXT_PUBLIC_BASE_URL (sans slash final), ex. https://api.example.com
+ * Sinon : Host / X-Forwarded-* de la requête vers l’API (pas le header Origin, qui est le domaine du front).
+ */
+export function publicUrlForStoredUpload(
+    storedUrl: string | null | undefined,
+    requestHeaders?: Headers
+): string | null {
+    if (storedUrl == null || storedUrl === "") return null;
+    const u = String(storedUrl).trim();
+    if (/^https?:\/\//i.test(u)) return u;
+    const pathPart = u.startsWith("/") ? u : `/${u}`;
+    const baseRaw =
+        process.env.API_PUBLIC_URL?.trim() ||
+        process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+        publicBaseUrlFromRequestHeaders(requestHeaders);
+    const base = baseRaw.replace(/\/+$/, "");
+    if (!base) return pathPart;
+    return `${base}${pathPart}`;
+}
+
+/** Réponse JSON école : logo_url utilisable depuis le navigateur (URL absolue si possible). */
+export function schoolRowWithPublicLogoUrl<T extends Record<string, unknown>>(
+    row: T,
+    requestHeaders?: Headers
+): T {
+    if (!row || !Object.prototype.hasOwnProperty.call(row, "logo_url")) return row;
+    const resolved = publicUrlForStoredUpload(row.logo_url as string | null, requestHeaders);
+    return { ...row, logo_url: resolved } as T;
 }

@@ -74,7 +74,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import path from 'path';
 import { setCorsHeaders, corsOptions } from '@/lib/cors';
-import { saveUploadsFile } from '@/lib/storage';
+import { saveUploadsFile, schoolRowWithPublicLogoUrl } from '@/lib/storage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,14 +90,15 @@ export async function OPTIONS() {
     });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     const res = await query('SELECT * FROM schools ORDER BY name');
-    const response = NextResponse.json(res.rows);
+    const rows = res.rows.map((r) => schoolRowWithPublicLogoUrl(r as Record<string, unknown>, req.headers));
+    const response = NextResponse.json(rows);
     response.headers.set('Access-Control-Allow-Origin', '*');
     return response;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         // Convert Next.js Request to FormData
         const formData = await req.formData();
@@ -178,7 +179,10 @@ export async function POST(req: Request) {
             }
         }
 
-        const response = NextResponse.json(res.rows[0], { status: 201 });
+        const response = NextResponse.json(
+            schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers),
+            { status: 201 }
+        );
         response.headers.set('Access-Control-Allow-Origin', '*');
         return response;
     } catch (error: any) {

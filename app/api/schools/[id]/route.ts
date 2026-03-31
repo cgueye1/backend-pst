@@ -141,7 +141,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import path from 'path';
-import { saveUploadsFile, deleteUploadsByStoredUrl } from '@/lib/storage';
+import {
+    saveUploadsFile,
+    deleteUploadsByStoredUrl,
+    schoolRowWithPublicLogoUrl,
+} from '@/lib/storage';
 
 // Configure runtime for file uploads
 export const runtime = 'nodejs';
@@ -176,7 +180,11 @@ export async function GET(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(NextResponse.json(res.rows[0]));
+        return setCorsHeaders(
+            NextResponse.json(
+                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
+            )
+        );
     } catch (error: any) {
         console.error('GET school error:', error);
         return setCorsHeaders(
@@ -317,7 +325,11 @@ export async function PUT(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(NextResponse.json(res.rows[0]));
+        return setCorsHeaders(
+            NextResponse.json(
+                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
+            )
+        );
 
     } catch (error: any) {
         console.error('PUT school error:', error);
@@ -361,7 +373,11 @@ export async function PATCH(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(NextResponse.json(res.rows[0]));
+        return setCorsHeaders(
+            NextResponse.json(
+                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
+            )
+        );
 
     } catch (error: any) {
         console.error('PATCH school status error:', error);
