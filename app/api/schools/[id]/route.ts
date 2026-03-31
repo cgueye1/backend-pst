@@ -150,6 +150,16 @@ import {
 // Configure runtime for file uploads
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+/** Upload + DB : éviter timeout proxy / client (Vercel défaut 10s ; ajustable selon hébergeur). */
+export const maxDuration = 120;
+
+function isClientDisconnectError(err: unknown): boolean {
+    const e = err as { code?: string; message?: string; name?: string };
+    if (e?.code === 'ECONNRESET') return true;
+    if (e?.name === 'AbortError') return true;
+    const m = String(e?.message ?? '').toLowerCase();
+    return m.includes('aborted') || m.includes('econnreset');
+}
 
 type Params = {
     params: Promise<{ id: string }>;
@@ -292,7 +302,12 @@ export async function PUT(req: NextRequest, context: Params) {
         `;
 
         console.log('SQL Query:', queryText);
-        console.log('Params:', queryParams);
+        console.log(
+            'Params (aperçu):',
+            queryParams.map((p) =>
+                typeof p === 'string' && p.length > 160 ? `${p.slice(0, 80)}… (${p.length} car.)` : p
+            )
+        );
 
         let res;
         try {
@@ -332,15 +347,27 @@ export async function PUT(req: NextRequest, context: Params) {
         );
 
     } catch (error: any) {
-        console.error('PUT school error:', error);
-        console.error('Stack:', error.stack);
+        if (isClientDisconnectError(error)) {
+            console.warn(
+                'PUT school: connexion interrompue (aborted / ECONNRESET). La base peut déjà être à jour — vérifier côté client (timeout, navigation avant fin de requête, proxy).'
+            );
+        } else {
+            console.error('PUT school error:', error);
+            console.error('Stack:', error.stack);
+        }
 
-        return setCorsHeaders(
-            NextResponse.json(
-                { error: error.message || 'Erreur lors de la mise à jour' },
-                { status: 500 }
-            )
-        );
+        try {
+            const status = isClientDisconnectError(error) ? 408 : 500;
+            const body = isClientDisconnectError(error)
+                ? {
+                      error: 'Requête interrompue ou timeout (client / proxy). Les données ont pu être enregistrées.',
+                      code: 'CLIENT_ABORT',
+                  }
+                : { error: error.message || 'Erreur lors de la mise à jour' };
+            return setCorsHeaders(NextResponse.json(body, { status }));
+        } catch {
+            return new NextResponse(null, { status: 408 });
+        }
     }
 }
 

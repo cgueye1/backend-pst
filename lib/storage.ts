@@ -4,10 +4,12 @@
  * MinIO (recommandé en prod) :
  *   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET
  *   MINIO_REGION (optionnel, défaut us-east-1)
- *   MINIO_PUBLIC_BASE_URL (optionnel) : URL publique pour les objets, sans slash final.
- *     Ex. path-style : https://minio.votredomaine.com/nom-bucket
- *     Les fichiers seront accessibles en https://.../nom-bucket/uploads/...
- *     Si absent : l’URL stockée reste /uploads/... et Next sert le fichier via readUploadsFile (proxy).
+ *   URL publique (navigateur), au choix (sans slash final) :
+ *     MINIO_PUBLIC_BASE_URL ou MINIO_BROWSER_BASE_URL ou MINIO_PUBLIC_URL
+ *     Ex. https://minio.votredomaine.com/nom-bucket  (path-style)
+ *   Si l’API parle à MinIO en interne (ex. http://minio:9000) mais le navigateur doit utiliser une autre URL :
+ *     MINIO_PUBLIC_ENDPOINT=https://fichiers.example.com  → base = {MINIO_PUBLIC_ENDPOINT}/{MINIO_BUCKET}
+ *   Si aucune URL publique : l’URL stockée reste /uploads/... (proxy Next via readUploadsFile).
  *
  * Forcer le backend :
  *   UPLOAD_STORAGE=minio  → uniquement MinIO (erreur si variables incomplètes)
@@ -52,12 +54,53 @@ function requireMinioConfigured(): void {
     }
 }
 
+/** Base URL publique (accessible depuis le navigateur), distincte de MINIO_ENDPOINT si Docker. */
+function resolvedMinioPublicBase(): string | null {
+    const pick = (...vals: (string | undefined)[]) => {
+        for (const v of vals) {
+            const t = v?.trim().replace(/\/+$/, "");
+            if (t) return t;
+        }
+        return null;
+    };
+    const explicit = pick(
+        process.env.MINIO_PUBLIC_BASE_URL,
+        process.env.MINIO_BROWSER_BASE_URL,
+        process.env.MINIO_PUBLIC_URL
+    );
+    if (explicit) return explicit;
+
+    const pubEndpoint = process.env.MINIO_PUBLIC_ENDPOINT?.trim().replace(/\/+$/, "");
+    if (pubEndpoint && isMinioStorageConfigured()) {
+        return `${pubEndpoint}/${bucket()}`;
+    }
+    return null;
+}
+
 /** URL publique directe vers l’objet dans MinIO (bucket policy / CDN). */
 function minioPublicUrlForKey(key: string): string | null {
-    const base = process.env.MINIO_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
+    const base = resolvedMinioPublicBase();
     if (!base) return null;
     const k = key.replace(/^\/+/, "");
     return `${base}/${k}`;
+}
+
+let loggedStorageBackendOnce = false;
+
+function logStorageBackendOnce(mode: UploadStorageMode): void {
+    if (loggedStorageBackendOnce) return;
+    loggedStorageBackendOnce = true;
+    if (mode === "local") {
+        console.warn(
+            "[storage] Écriture sur disque (uploads/). Pour MinIO : MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_BUCKET — puis MINIO_PUBLIC_BASE_URL (ou MINIO_PUBLIC_ENDPOINT) pour les URLs directes. Forcer MinIO : UPLOAD_STORAGE=minio."
+        );
+    } else {
+        console.info(
+            "[storage] MinIO actif, bucket=",
+            process.env.MINIO_BUCKET,
+            resolvedMinioPublicBase() ? ", URL publique configurée" : ", URL publique non configurée (URLs /uploads/ en base)"
+        );
+    }
 }
 
 function getUploadsBaseDir(): string {
@@ -109,6 +152,7 @@ export async function saveUploadsFile(
     const relForUrl = key.replace(/^uploads\/?/, "");
     const publicPath = `/uploads/${relForUrl}`;
     const mode = getUploadStorageMode();
+    logStorageBackendOnce(mode);
 
     if (mode === "minio") {
         requireMinioConfigured();
