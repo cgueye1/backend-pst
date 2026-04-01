@@ -136,6 +136,9 @@ export async function GET(req: NextRequest) {
 
         // Ajouter les vacances si une école est sélectionnée
         if (schoolId) {
+            // Overlap sur le mois demandé, sans fabriquer de dates invalides (ex: 2026-4-31).
+            // monthStart = make_date(year, month, 1)
+            // monthEnd   = monthStart + 1 month - 1 day
             const vacationsQuery = `
                 SELECT
                     id,
@@ -146,13 +149,11 @@ export async function GET(req: NextRequest) {
                     'HOLIDAY' AS type
                 FROM school_vacations
                 WHERE school_id = $1
-                  AND (
-                    (start_date <= DATE '${year}-${month}-31'
-                        AND end_date >= DATE '${year}-${month}-01')
-                    )
+                  AND start_date <= (make_date($2, $3, 1) + INTERVAL '1 month' - INTERVAL '1 day')::date
+                  AND end_date >= make_date($2, $3, 1)::date
             `;
 
-            const vacations = await query(vacationsQuery, [schoolId]);
+            const vacations = await query(vacationsQuery, [schoolId, year, month]);
             events.push(
                 ...vacations.rows.map(v => ({
                     ...v,
