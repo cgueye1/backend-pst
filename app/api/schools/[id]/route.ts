@@ -190,11 +190,11 @@ export async function GET(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(
-            NextResponse.json(
-                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
-            )
+        const row = await schoolRowWithPublicLogoUrl(
+            res.rows[0] as Record<string, unknown>,
+            req.headers
         );
+        return setCorsHeaders(NextResponse.json(row));
     } catch (error: any) {
         console.error('GET school error:', error);
         return setCorsHeaders(
@@ -340,11 +340,11 @@ export async function PUT(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(
-            NextResponse.json(
-                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
-            )
+        const row = await schoolRowWithPublicLogoUrl(
+            res.rows[0] as Record<string, unknown>,
+            req.headers
         );
+        return setCorsHeaders(NextResponse.json(row));
 
     } catch (error: any) {
         if (isClientDisconnectError(error)) {
@@ -400,11 +400,11 @@ export async function PATCH(req: NextRequest, context: Params) {
             );
         }
 
-        return setCorsHeaders(
-            NextResponse.json(
-                schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers)
-            )
+        const row = await schoolRowWithPublicLogoUrl(
+            res.rows[0] as Record<string, unknown>,
+            req.headers
         );
+        return setCorsHeaders(NextResponse.json(row));
 
     } catch (error: any) {
         console.error('PATCH school status error:', error);

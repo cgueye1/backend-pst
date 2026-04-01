@@ -92,7 +92,9 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
     const res = await query('SELECT * FROM schools ORDER BY name');
-    const rows = res.rows.map((r) => schoolRowWithPublicLogoUrl(r as Record<string, unknown>, req.headers));
+    const rows = await Promise.all(
+        res.rows.map((r) => schoolRowWithPublicLogoUrl(r as Record<string, unknown>, req.headers))
+    );
     const response = NextResponse.json(rows);
     response.headers.set('Access-Control-Allow-Origin', '*');
     return response;
@@ -179,10 +181,11 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const response = NextResponse.json(
-            schoolRowWithPublicLogoUrl(res.rows[0] as Record<string, unknown>, req.headers),
-            { status: 201 }
+        const row = await schoolRowWithPublicLogoUrl(
+            res.rows[0] as Record<string, unknown>,
+            req.headers
         );
+        const response = NextResponse.json(row, { status: 201 });
         response.headers.set('Access-Control-Allow-Origin', '*');
         return response;
     } catch (error: any) {

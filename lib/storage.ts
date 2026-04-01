@@ -10,11 +10,23 @@
  *   Si l’API parle à MinIO en interne (ex. http://minio:9000) mais le navigateur doit utiliser une autre URL :
  *     MINIO_PUBLIC_ENDPOINT=https://fichiers.example.com  → base = {MINIO_PUBLIC_ENDPOINT}/{MINIO_BUCKET}
  *   Si aucune URL publique : l’URL stockée reste /uploads/... (proxy Next via readUploadsFile).
+ *   Bucket privé (lecture anonyme refusée) : garder des chemins /uploads/... en base (défaut).
+ *   Pour enregistrer l’URL MinIO absolue en base (bucket avec policy lecture publique) :
+ *     MINIO_STORE_PUBLIC_URL_IN_DB=true
  *
  * Forcer le backend :
  *   UPLOAD_STORAGE=minio  → uniquement MinIO (erreur si variables incomplètes)
  *   UPLOAD_STORAGE=local  → uniquement le disque (ignore MinIO même si configuré)
  *   (non défini)          → MinIO si toutes les variables MinIO sont présentes, sinon disque.
+ *
+ * Logos école (JSON), par défaut : URL vers l’API (/uploads/...) — bucket privé OK.
+ * MINIO_DIRECT_PUBLIC_LOGO_URL=true : URL MinIO directe (bucket public).
+ *
+ * URLs présignées (même style que ?X-Amz-Algorithm=...&X-Amz-Signature=...) :
+ *   MINIO_PRESIGNED_URL_EXPIRES_SECONDS=3600   (ou 604800 max recommandé)
+ *   ou MINIO_USE_PRESIGNED_GET_URL=true        (défaut 3600 si pas d’expiration définie)
+ * L’URL signée n’est pas stockée en base (elle expire) : générée à chaque GET/POST/PUT école.
+ * MINIO_PRESIGN_ENDPOINT=https://minio...      (optionnel, hôte vu par le navigateur ; sinon dérivé de MINIO_PUBLIC_BASE_URL)
  */
 
 import fs from "fs";
@@ -26,6 +38,7 @@ import {
     GetObjectCommand,
     DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export function isMinioStorageConfigured(): boolean {
     return Boolean(
@@ -97,7 +110,7 @@ function logStorageBackendOnce(mode: UploadStorageMode): void {
     } else {
         console.info(
             "[storage] MinIO actif, bucket=",
-            process.env.MINIO_BUCKET,
+            process.env.MINIO_BUCKET?.trim(),
             resolvedMinioPublicBase() ? ", URL publique configurée" : ", URL publique non configurée (URLs /uploads/ en base)"
         );
     }
@@ -111,6 +124,73 @@ function getUploadsBaseDir(): string {
 }
 
 let s3Client: S3Client | null = null;
+let s3PresignClient: S3Client | null = null;
+
+/** Hôte utilisé pour signer les URLs que le navigateur appellera (souvent public, pas le service Docker interne). */
+function presignEndpointUrl(): string {
+    const explicit = process.env.MINIO_PRESIGN_ENDPOINT?.trim().replace(/\/+$/, "");
+    if (explicit) return explicit;
+    const base = resolvedMinioPublicBase();
+    if (base) {
+        try {
+            return new URL(base).origin;
+        } catch {
+            /* ignore */
+        }
+    }
+    const pub = process.env.MINIO_PUBLIC_ENDPOINT?.trim().replace(/\/+$/, "");
+    if (pub) return pub;
+    return process.env.MINIO_ENDPOINT!.replace(/\/+$/, "");
+}
+
+function getS3ForPresign(): S3Client {
+    if (s3PresignClient) return s3PresignClient;
+    requireMinioConfigured();
+    s3PresignClient = new S3Client({
+        region: process.env.MINIO_REGION || "us-east-1",
+        endpoint: presignEndpointUrl(),
+        credentials: {
+            accessKeyId: process.env.MINIO_ACCESS_KEY!,
+            secretAccessKey: process.env.MINIO_SECRET_KEY!,
+        },
+        forcePathStyle: true,
+    });
+    return s3PresignClient;
+}
+
+/** Durée de validité des URLs présignées pour les logos école (0 = désactivé). */
+export function presignedUrlExpiresSeconds(): number {
+    const raw = process.env.MINIO_PRESIGNED_URL_EXPIRES_SECONDS?.trim();
+    if (raw !== undefined && raw !== "") {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n) && n > 0) {
+            return Math.min(n, 604800);
+        }
+        return 0;
+    }
+    if (process.env.MINIO_USE_PRESIGNED_GET_URL?.trim().toLowerCase() === "true") {
+        return 3600;
+    }
+    return 0;
+}
+
+/**
+ * URL présignée GetObject pour une URL déjà stockée (MinIO), sans la persister.
+ */
+export async function presignedGetUrlForStoredObject(
+    storedUrl: string | null | undefined,
+    expiresInSeconds: number
+): Promise<string | null> {
+    if (!storedUrl || getUploadStorageMode() !== "minio") return null;
+    const rel = parseRelativePathFromStoredUrl(String(storedUrl).trim());
+    if (!rel) return null;
+    const key = toObjectKey(rel);
+    const cmd = new GetObjectCommand({
+        Bucket: bucket(),
+        Key: key,
+    });
+    return getSignedUrl(getS3ForPresign(), cmd, { expiresIn: expiresInSeconds });
+}
 
 function getS3(): S3Client {
     if (!s3Client) {
@@ -139,9 +219,13 @@ export function toObjectKey(relativeUnderUploads: string): string {
     return `uploads/${clean}`;
 }
 
+function storeAbsoluteMinioUrlInDb(): boolean {
+    return process.env.MINIO_STORE_PUBLIC_URL_IN_DB?.trim().toLowerCase() === "true";
+}
+
 /**
  * @param relativeUnderUploads chemin sous uploads/, ex. drivers/foo.jpg ou incidents/x.pdf
- * @returns URL stockée en base : URL absolue MinIO si MINIO_PUBLIC_BASE_URL est défini, sinon /uploads/...
+ * @returns Chemin /uploads/... (défaut, bucket privé OK) ou URL MinIO absolue si MINIO_STORE_PUBLIC_URL_IN_DB=true et base publique configurée.
  */
 export async function saveUploadsFile(
     relativeUnderUploads: string,
@@ -164,8 +248,11 @@ export async function saveUploadsFile(
                 ContentType: contentType || "application/octet-stream",
             })
         );
-        const direct = minioPublicUrlForKey(key);
-        return direct ?? publicPath;
+        if (storeAbsoluteMinioUrlInDb()) {
+            const direct = minioPublicUrlForKey(key);
+            if (direct) return direct;
+        }
+        return publicPath;
     }
 
     const fullPath = path.join(getUploadsBaseDir(), relForUrl);
@@ -329,12 +416,49 @@ export function publicUrlForStoredUpload(
     return `${base}${pathPart}`;
 }
 
-/** Réponse JSON école : logo_url utilisable depuis le navigateur (URL absolue si possible). */
-export function schoolRowWithPublicLogoUrl<T extends Record<string, unknown>>(
+function useDirectMinioLogoInSchoolJson(): boolean {
+    return process.env.MINIO_DIRECT_PUBLIC_LOGO_URL?.trim().toLowerCase() === "true";
+}
+
+/**
+ * Réponse JSON école : logo_url que le navigateur peut charger.
+ * Si MINIO_PRESIGNED_URL_EXPIRES_SECONDS ou MINIO_USE_PRESIGNED_GET_URL : URL présignée MinIO.
+ * Sinon : proxy API (/uploads/...) ou URL directe si MINIO_DIRECT_PUBLIC_LOGO_URL.
+ */
+export async function schoolRowWithPublicLogoUrl<T extends Record<string, unknown>>(
     row: T,
     requestHeaders?: Headers
-): T {
+): Promise<T> {
     if (!row || !Object.prototype.hasOwnProperty.call(row, "logo_url")) return row;
-    const resolved = publicUrlForStoredUpload(row.logo_url as string | null, requestHeaders);
+    const raw = row.logo_url as string | null;
+    if (raw == null || raw === "") {
+        return { ...row, logo_url: null } as T;
+    }
+
+    const exp = presignedUrlExpiresSeconds();
+    if (getUploadStorageMode() === "minio" && exp > 0) {
+        try {
+            const signed = await presignedGetUrlForStoredObject(raw, exp);
+            if (signed) {
+                return { ...row, logo_url: signed } as T;
+            }
+        } catch (e) {
+            console.warn("[storage] Presign logo_url échoué, repli proxy/API :", e);
+        }
+    }
+
+    if (useDirectMinioLogoInSchoolJson()) {
+        const resolved = publicUrlForStoredUpload(raw, requestHeaders);
+        return { ...row, logo_url: resolved } as T;
+    }
+
+    const rel = parseRelativePathFromStoredUrl(raw);
+    if (rel) {
+        const proxyPath = `/uploads/${rel.replace(/^\/+/, "")}`;
+        const resolved = publicUrlForStoredUpload(proxyPath, requestHeaders);
+        return { ...row, logo_url: resolved } as T;
+    }
+
+    const resolved = publicUrlForStoredUpload(raw, requestHeaders);
     return { ...row, logo_url: resolved } as T;
 }
