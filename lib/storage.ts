@@ -19,14 +19,22 @@
  *   UPLOAD_STORAGE=local  → uniquement le disque (ignore MinIO même si configuré)
  *   (non défini)          → MinIO si toutes les variables MinIO sont présentes, sinon disque.
  *
- * Logos école (JSON), par défaut : URL vers l’API (/uploads/...) — bucket privé OK.
- * MINIO_DIRECT_PUBLIC_LOGO_URL=true : URL MinIO directe (bucket public).
+ * Objectif prod typique (images dans MinIO, visibles en permanence) :
+ *   UPLOAD_STORAGE=minio + MINIO_ENDPOINT, ACCESS_KEY, SECRET_KEY, BUCKET
+ *   Ne pas activer MINIO_STORE_PUBLIC_URL_IN_DB (bucket privé) : en base reste /uploads/...
+ *   Le navigateur appelle https://votre-api/uploads/... → l’API lit l’objet dans MinIO (URL stable).
+ *   Définir API_PUBLIC_URL (ou NEXT_PUBLIC_BASE_URL) si le front est sur un autre domaine que l’API.
  *
- * URLs présignées (même style que ?X-Amz-Algorithm=...&X-Amz-Signature=...) :
- *   MINIO_PRESIGNED_URL_EXPIRES_SECONDS=3600   (ou 604800 max recommandé)
- *   ou MINIO_USE_PRESIGNED_GET_URL=true        (défaut 3600 si pas d’expiration définie)
- * L’URL signée n’est pas stockée en base (elle expire) : générée à chaque GET/POST/PUT école.
- * MINIO_PRESIGN_ENDPOINT=https://minio...      (optionnel, hôte vu par le navigateur ; sinon dérivé de MINIO_PUBLIC_BASE_URL)
+ * Logos école (JSON) : par défaut URL absolue vers l’API (/uploads/...) — pas d’expiration.
+ * MINIO_DIRECT_PUBLIC_LOGO_URL=true : renvoyer une URL MinIO/CDN (bucket doit être lisible publiquement).
+ *
+ * Désactiver toute présignature (même si d’anciennes vars sont présentes) :
+ *   MINIO_FORCE_PERMANENT_MEDIA_URL=true  ou  MINIO_DISABLE_PRESIGNED_URLS=true
+ *
+ * URLs présignées (optionnel — expirent toujours, déconseillé si vous voulez des liens permanents) :
+ *   Uniquement si MINIO_PRESIGNED_URL_EXPIRES_SECONDS est un entier > 0 (max 604800).
+ *   MINIO_USE_PRESIGNED_GET_URL seul ne suffit plus (évite les URLs qui expirent par erreur).
+ * MINIO_PRESIGN_ENDPOINT=https://minio...  (optionnel)
  */
 
 import fs from "fs";
@@ -158,8 +166,19 @@ function getS3ForPresign(): S3Client {
     return s3PresignClient;
 }
 
-/** Durée de validité des URLs présignées pour les logos école (0 = désactivé). */
+function forcePermanentMediaUrls(): boolean {
+    const t = (v: string | undefined) => v?.trim().toLowerCase() === "true";
+    return (
+        t(process.env.MINIO_FORCE_PERMANENT_MEDIA_URL) ||
+        t(process.env.MINIO_DISABLE_PRESIGNED_URLS)
+    );
+}
+
+/** Durée de validité des URLs présignées pour les logos école (0 = désactivé, URLs via /uploads/ ou MinIO public). */
 export function presignedUrlExpiresSeconds(): number {
+    if (forcePermanentMediaUrls()) {
+        return 0;
+    }
     const raw = process.env.MINIO_PRESIGNED_URL_EXPIRES_SECONDS?.trim();
     if (raw !== undefined && raw !== "") {
         const n = parseInt(raw, 10);
@@ -167,9 +186,6 @@ export function presignedUrlExpiresSeconds(): number {
             return Math.min(n, 604800);
         }
         return 0;
-    }
-    if (process.env.MINIO_USE_PRESIGNED_GET_URL?.trim().toLowerCase() === "true") {
-        return 3600;
     }
     return 0;
 }
@@ -422,8 +438,8 @@ function useDirectMinioLogoInSchoolJson(): boolean {
 
 /**
  * Réponse JSON école : logo_url que le navigateur peut charger.
- * Si MINIO_PRESIGNED_URL_EXPIRES_SECONDS ou MINIO_USE_PRESIGNED_GET_URL : URL présignée MinIO.
- * Sinon : proxy API (/uploads/...) ou URL directe si MINIO_DIRECT_PUBLIC_LOGO_URL.
+ * Si MINIO_PRESIGNED_URL_EXPIRES_SECONDS > 0 : URL présignée MinIO (expire).
+ * Sinon : proxy API (/uploads/...) stable, ou URL directe si MINIO_DIRECT_PUBLIC_LOGO_URL.
  */
 export async function schoolRowWithPublicLogoUrl<T extends Record<string, unknown>>(
     row: T,
